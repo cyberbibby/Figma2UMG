@@ -15,8 +15,8 @@ public:
 	GENERATED_BODY()
 
 	UPROPERTY()
-	EFigmaLayoutConstraintVertical Vertical;
+	EFigmaLayoutConstraintVertical Vertical = EFigmaLayoutConstraintVertical::TOP;
 
 	UPROPERTY()
-	EFigmaLayoutConstraintHorizontal Horizontal;
+	EFigmaLayoutConstraintHorizontal Horizontal = EFigmaLayoutConstraintHorizontal::LEFT;
 };

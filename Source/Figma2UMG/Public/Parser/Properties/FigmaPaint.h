@@ -37,7 +37,7 @@ public:
 	TObjectPtr<UMaterialInterface> GetMaterial() const;
 
 	UPROPERTY()
-	EPaintTypes Type;
+	EPaintTypes Type = EPaintTypes::SOLID;
 
 	UPROPERTY()
 	bool Visible = true;
@@ -49,7 +49,7 @@ public:
 	FFigmaColor Color;
 
 	UPROPERTY()
-	EFigmaBlendMode BlendMode;
+	EFigmaBlendMode BlendMode = EFigmaBlendMode::NORMAL;
 
 	UPROPERTY()
 	TArray<FFigmaVector> GradientHandlePositions;
@@ -58,15 +58,15 @@ public:
 	TArray<FFigmaColorStop> GradientStops;
 
 	UPROPERTY()
-	EScaleMode ScaleMode;
+	EScaleMode ScaleMode = EScaleMode::FILL;
 
 	FFigmaTransform ImageTransform;
 
 	UPROPERTY()
-	float ScalingFactor;
+	float ScalingFactor = 1.0f;
 
 	UPROPERTY()
-	float Rotation;
+	float Rotation = 0.0f;
 
 	UPROPERTY()
 	FString ImageRef;

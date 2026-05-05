@@ -26,8 +26,8 @@ public:
 	bool IsValid() const;
 
 	UPROPERTY()
-	UFigmaTrigger* Trigger = nullptr;
+	TObjectPtr<UFigmaTrigger> Trigger = nullptr;
 
 	UPROPERTY()
-	TArray<UFigmaAction*> Actions;
+	TArray<TObjectPtr<UFigmaAction>> Actions;
 };

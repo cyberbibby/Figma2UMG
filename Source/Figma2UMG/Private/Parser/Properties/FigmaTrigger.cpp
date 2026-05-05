@@ -15,7 +15,7 @@ UFigmaTrigger* UFigmaTrigger::CreateTrigger(const TSharedPtr<FJsonObject>& Objec
 	const FString NodeTypeStr = ObjectJson->GetStringField(TypeStr);
 
 	static const FString EnumPath = "/Script/Figma2UMG.EFigmaTriggerType";
-	static UEnum* EnumDef = FindObject<UEnum>(nullptr, *EnumPath, true);
+	static UEnum* EnumDef = FindObject<UEnum>(nullptr, *EnumPath, EFindObjectFlags::ExactClass);
 	if (!EnumDef)
 		return nullptr;
 

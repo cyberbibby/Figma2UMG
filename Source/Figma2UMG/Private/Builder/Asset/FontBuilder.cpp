@@ -53,7 +53,7 @@ void UFontBuilder::LoadOrCreateAssets()
 					FontFace->FontFaceData->SetData(MoveTemp(FaceRawData.Value));
 					FontFace->CacheSubFaces();
 
-					FTypefaceEntry& DefaultTypefaceEntry = Asset->CompositeFont.DefaultTypeface.Fonts.Emplace_GetRef();
+					FTypefaceEntry& DefaultTypefaceEntry = Asset->GetMutableInternalCompositeFont().DefaultTypeface.Fonts.Emplace_GetRef();
 					DefaultTypefaceEntry.Name = *FaceRawData.Key;
 					DefaultTypefaceEntry.Font = FFontData(FontFace);
 

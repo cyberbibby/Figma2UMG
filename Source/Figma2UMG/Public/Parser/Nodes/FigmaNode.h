@@ -70,7 +70,7 @@ public:
 	
 	ENodeTypes GetType() const {return Type;}
 protected:
-	void SerializeArray(TArray<UFigmaNode*>& Array, const TSharedRef<FJsonObject> JsonObj, const FString& arrayName);
+	void SerializeArray(TArray<TObjectPtr<UFigmaNode>>& Array, const TSharedRef<FJsonObject> JsonObj, const FString& arrayName);
 
 	const FFigmaInteraction& GetInteractionFromTrigger(const TArray<FFigmaInteraction>& InInteractions, const EFigmaTriggerType TriggerType) const;
 	const FFigmaInteraction& GetInteractionFromAction(const TArray<FFigmaInteraction>& InInteractions, const EFigmaActionType ActionType, const EFigmaActionNodeNavigation Navigation) const;

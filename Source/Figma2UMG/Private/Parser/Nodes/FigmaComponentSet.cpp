@@ -31,11 +31,11 @@ void UFigmaComponentSet::PostSerialize(const TObjectPtr<UFigmaNode> InParent, co
 				FString DisabledName = Property.Key + TEXT("=Disabled");
 				FString FocusedName = Property.Key + TEXT("=Focused");
 
-				UFigmaNode** FoundDefaultNode = Children.FindByPredicate([DefaultName](const UFigmaNode* Node) {return Node->GetNodeName().Compare(DefaultName, ESearchCase::IgnoreCase) == 0; });
-				UFigmaNode** FoundHoveredNode = Children.FindByPredicate([HoveredName](const UFigmaNode* Node) {return Node->GetNodeName().Compare(HoveredName, ESearchCase::IgnoreCase) == 0; });
-				UFigmaNode** FoundPressedNode = Children.FindByPredicate([PressedName](const UFigmaNode* Node) {return Node->GetNodeName().Compare(PressedName, ESearchCase::IgnoreCase) == 0; });
-				UFigmaNode** FoundDisabledNode = Children.FindByPredicate([DisabledName](const UFigmaNode* Node) {return Node->GetNodeName().Compare(DisabledName, ESearchCase::IgnoreCase) == 0; });
-				UFigmaNode** FoundFocusedNode = Children.FindByPredicate([FocusedName](const UFigmaNode* Node) {return Node->GetNodeName().Compare(FocusedName, ESearchCase::IgnoreCase) == 0; });
+				TObjectPtr<UFigmaNode>* FoundDefaultNode = Children.FindByPredicate([DefaultName](const UFigmaNode* Node) { return Node && Node->GetNodeName().Compare(DefaultName, ESearchCase::IgnoreCase) == 0; });
+				TObjectPtr<UFigmaNode>* FoundHoveredNode = Children.FindByPredicate([HoveredName](const UFigmaNode* Node) { return Node && Node->GetNodeName().Compare(HoveredName, ESearchCase::IgnoreCase) == 0; });
+				TObjectPtr<UFigmaNode>* FoundPressedNode = Children.FindByPredicate([PressedName](const UFigmaNode* Node) { return Node && Node->GetNodeName().Compare(PressedName, ESearchCase::IgnoreCase) == 0; });
+				TObjectPtr<UFigmaNode>* FoundDisabledNode = Children.FindByPredicate([DisabledName](const UFigmaNode* Node) { return Node && Node->GetNodeName().Compare(DisabledName, ESearchCase::IgnoreCase) == 0; });
+				TObjectPtr<UFigmaNode>* FoundFocusedNode = Children.FindByPredicate([FocusedName](const UFigmaNode* Node) { return Node && Node->GetNodeName().Compare(FocusedName, ESearchCase::IgnoreCase) == 0; });
 
 				if (UFigmaComponent* DefaultComponent = FoundDefaultNode ? Cast<UFigmaComponent>(*FoundDefaultNode) : nullptr)
 				{
@@ -98,11 +98,11 @@ TScriptInterface<IWidgetBuilder> UFigmaComponentSet::CreateWidgetBuilders(bool I
 					FString DisabledName = Property.Key + TEXT("=Disabled");
 					FString FocusedName = Property.Key + TEXT("=Focused");
 
-					const UFigmaNode* const* FoundDefaultNode = Children.FindByPredicate([DefaultName](const UFigmaNode* Node) {return Node->GetNodeName().Compare(DefaultName, ESearchCase::IgnoreCase) == 0; });
-					const UFigmaNode* const* FoundHoveredNode = Children.FindByPredicate([HoveredName](const UFigmaNode* Node) {return Node->GetNodeName().Compare(HoveredName, ESearchCase::IgnoreCase) == 0; });
-					const UFigmaNode* const* FoundPressedNode = Children.FindByPredicate([PressedName](const UFigmaNode* Node) {return Node->GetNodeName().Compare(PressedName, ESearchCase::IgnoreCase) == 0; });
-					const UFigmaNode* const* FoundDisabledNode = Children.FindByPredicate([DisabledName](const UFigmaNode* Node) {return Node->GetNodeName().Compare(DisabledName, ESearchCase::IgnoreCase) == 0; });
-					const UFigmaNode* const* FoundFocusedNode = Children.FindByPredicate([FocusedName](const UFigmaNode* Node) {return Node->GetNodeName().Compare(FocusedName, ESearchCase::IgnoreCase) == 0; });
+					const TObjectPtr<UFigmaNode>* FoundDefaultNode = Children.FindByPredicate([DefaultName](const UFigmaNode* Node) { return Node && Node->GetNodeName().Compare(DefaultName, ESearchCase::IgnoreCase) == 0; });
+					const TObjectPtr<UFigmaNode>* FoundHoveredNode = Children.FindByPredicate([HoveredName](const UFigmaNode* Node) { return Node && Node->GetNodeName().Compare(HoveredName, ESearchCase::IgnoreCase) == 0; });
+					const TObjectPtr<UFigmaNode>* FoundPressedNode = Children.FindByPredicate([PressedName](const UFigmaNode* Node) { return Node && Node->GetNodeName().Compare(PressedName, ESearchCase::IgnoreCase) == 0; });
+					const TObjectPtr<UFigmaNode>* FoundDisabledNode = Children.FindByPredicate([DisabledName](const UFigmaNode* Node) { return Node && Node->GetNodeName().Compare(DisabledName, ESearchCase::IgnoreCase) == 0; });
+					const TObjectPtr<UFigmaNode>* FoundFocusedNode = Children.FindByPredicate([FocusedName](const UFigmaNode* Node) { return Node && Node->GetNodeName().Compare(FocusedName, ESearchCase::IgnoreCase) == 0; });
 
 					ButtonBuilder->SetDefaultNode(FoundDefaultNode ? Cast<UFigmaComponent>(*FoundDefaultNode) : nullptr);
 					ButtonBuilder->SetHoveredNode(FoundHoveredNode ? Cast<UFigmaComponent>(*FoundHoveredNode) : nullptr);

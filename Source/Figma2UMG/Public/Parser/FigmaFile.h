@@ -104,7 +104,7 @@ protected:
 	FString LinkAccess;
 
 	UPROPERTY()
-	UFigmaDocument* Document;
+	TObjectPtr<UFigmaDocument> Document;
 
 	UPROPERTY()
 	TMap<FString, FFigmaComponentRef> Components;

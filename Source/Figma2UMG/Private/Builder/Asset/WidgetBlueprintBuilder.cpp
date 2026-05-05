@@ -32,7 +32,7 @@ void UWidgetBlueprintBuilder::LoadOrCreateAssets()
 		const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
 
 		const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-		const FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(*PackageName, *AssetName, FString()));
+		const FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(FTopLevelAssetPath(*PackageName, *AssetName), FString()));
 		WidgetAsset = Cast<UWidgetBlueprint>(AssetData.FastGetAsset(true));
 
 		if (WidgetAsset == nullptr)
@@ -66,7 +66,7 @@ void UWidgetBlueprintBuilder::LoadAssets()
 	const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
 
 	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	const FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(*PackageName, *AssetName, FString()));
+	const FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(FTopLevelAssetPath(*PackageName, *AssetName), FString()));
 	Asset = Cast<UWidgetBlueprint>(AssetData.FastGetAsset(true));
 
 }

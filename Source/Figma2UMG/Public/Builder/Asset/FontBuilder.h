@@ -41,7 +41,7 @@ protected:
 	TObjectPtr<UFont> Asset = nullptr;
 
 	UPROPERTY()
-	TArray<UFontFace*> Faces;
+	TArray<TObjectPtr<UFontFace>> Faces;
 
 	TMap<FString, TArray<uint8>> FacesRawData;
 	FOnRawFontFileReceive::FDelegate OnRawFontReceivedCB;

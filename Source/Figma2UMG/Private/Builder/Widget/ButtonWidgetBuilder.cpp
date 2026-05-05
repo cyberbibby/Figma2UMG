@@ -71,7 +71,7 @@ void UButtonWidgetBuilder::PatchWidgetBinds(const TObjectPtr<UWidgetBlueprint>& 
 
 void UButtonWidgetBuilder::SetDefaultNode(const UFigmaGroup* InNode)
 {
-	DefaultNode = InNode;
+	DefaultNode = const_cast<UFigmaGroup*>(InNode);
 	if(DefaultNode)
 	{
 		TScriptInterface<IWidgetBuilder> Bulder = DefaultNode->CreateWidgetBuilders(false, false);
@@ -84,22 +84,22 @@ void UButtonWidgetBuilder::SetDefaultNode(const UFigmaGroup* InNode)
 
 void UButtonWidgetBuilder::SetHoveredNode(const UFigmaGroup* InNode)
 {
-	HoveredNode = InNode;
+	HoveredNode = const_cast<UFigmaGroup*>(InNode);
 }
 
 void UButtonWidgetBuilder::SetPressedNode(const UFigmaGroup* InNode)
 {
-	PressedNode = InNode;
+	PressedNode = const_cast<UFigmaGroup*>(InNode);
 }
 
 void UButtonWidgetBuilder::SetDisabledNode(const UFigmaGroup* InNode)
 {
-	DisabledNode = InNode;
+	DisabledNode = const_cast<UFigmaGroup*>(InNode);
 }
 
 void UButtonWidgetBuilder::SetFocusedNode(const UFigmaGroup* InNode)
 {
-	FocusedNode = InNode;
+	FocusedNode = const_cast<UFigmaGroup*>(InNode);
 }
 
 void UButtonWidgetBuilder::SetWidget(const TObjectPtr<UWidget>& InWidget)

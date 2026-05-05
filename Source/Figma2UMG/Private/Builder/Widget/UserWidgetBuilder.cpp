@@ -243,7 +243,7 @@ void UUserWidgetBuilder::SetupTransition(const IFlowTransition* FlowTransition, 
 	UK2Node_CallFunction* RemoveFromParentFunction = WidgetBlueprintHelper::AddFunctionAfterNode(WidgetBlueprint, OnButtonClickedNode, RemoveFromParentFunctionName);
 	if (RemoveFromParentFunction)
 	{
-		UClass* FoundClass = FindObject<UClass>(nullptr, TEXT("/Script/UMGEditor.K2Node_CreateWidget"), true);
+		UClass* FoundClass = FindObject<UClass>(nullptr, TEXT("/Script/UMGEditor.K2Node_CreateWidget"), EFindObjectFlags::ExactClass);
 
 		UEdGraphNode* UK2Node_CreateWidget = AddNodeAfterNode(RemoveFromParentFunction, FoundClass);
 		UEdGraphPin* ClassPin = UK2Node_CreateWidget->FindPin(UEdGraphSchema_K2::PC_Class, EGPD_Input);

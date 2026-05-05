@@ -270,10 +270,15 @@ UFigmaNode* UFigmaInstance::FindNodeForOverriden(const FString& NodeId) const
 	return FindNodeForOverriden(NodeId, Children);
 }
 
-void UFigmaInstance::ProcessChildrenComponentPropertyReferences(TObjectPtr<UWidgetBlueprint> WidgetBp, TObjectPtr<UWidget> Widget, const TArray<UFigmaNode*>& CurrentChildren) const
+void UFigmaInstance::ProcessChildrenComponentPropertyReferences(TObjectPtr<UWidgetBlueprint> WidgetBp, TObjectPtr<UWidget> Widget, const TArray<TObjectPtr<UFigmaNode>>& CurrentChildren) const
 {
 	for (UFigmaNode* Child : CurrentChildren)
 	{
+		if (!Child)
+		{
+			continue;
+		}
+
 		if (Child->IsA<UFigmaInstance>())
 			continue;
 
@@ -282,13 +287,13 @@ void UFigmaInstance::ProcessChildrenComponentPropertyReferences(TObjectPtr<UWidg
 		IFigmaContainer* ContainerChild = Cast<IFigmaContainer>(Child);
 		if (ContainerChild)
 		{
-			TArray<UFigmaNode*>& SubChildren = ContainerChild->GetChildren();
+			TArray<TObjectPtr<UFigmaNode>>& SubChildren = ContainerChild->GetChildren();
 			ProcessChildrenComponentPropertyReferences(WidgetBp, Widget, SubChildren);
 		}
 	}
 }
 
-UFigmaNode* UFigmaInstance::FindNodeForOverriden(const FString& NodeId, const TArray<UFigmaNode*>& ChildrenArray) const
+UFigmaNode* UFigmaInstance::FindNodeForOverriden(const FString& NodeId, const TArray<TObjectPtr<UFigmaNode>>& ChildrenArray) const
 {
 	for (UFigmaNode* Child : ChildrenArray)
 	{
@@ -301,7 +306,7 @@ UFigmaNode* UFigmaInstance::FindNodeForOverriden(const FString& NodeId, const TA
 		UFigmaNode* Found = nullptr;
 		if (const IFigmaContainer* FigmaContainer = Cast<IFigmaContainer>(Child))
 		{
-			const TArray<UFigmaNode*>& SubChildren = FigmaContainer->GetChildrenConst();
+			const TArray<TObjectPtr<UFigmaNode>>& SubChildren = FigmaContainer->GetChildrenConst();
 			Found = FindNodeForOverriden(NodeId, SubChildren);
 		}
 		else if(const UFigmaInstance* SubInstance = Cast<UFigmaInstance>(Child))

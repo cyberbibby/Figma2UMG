@@ -31,5 +31,5 @@ protected:
 	bool IsDoingInPlace = false;
 
 	UPROPERTY()
-	TArray<UFigmaNode*> ButtonSubNodes;
+	TArray<TObjectPtr<UFigmaNode>> ButtonSubNodes;
 };

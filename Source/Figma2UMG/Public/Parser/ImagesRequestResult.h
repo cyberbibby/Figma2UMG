@@ -19,7 +19,7 @@ public:
 	TMap<FString, FString> Images;
 
 	UPROPERTY()
-	int Status;
+	int Status = 0;
 	
 };
 
@@ -46,6 +46,6 @@ public:
 	FImagesRefMeta Meta;
 
 	UPROPERTY()
-	int Status;
+	int Status = 0;
 
 };

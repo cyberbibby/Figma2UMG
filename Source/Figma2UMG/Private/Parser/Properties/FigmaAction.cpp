@@ -15,7 +15,7 @@ UFigmaAction* UFigmaAction::CreateAction(const TSharedPtr<FJsonObject>& ObjectJs
 	const FString NodeTypeStr = ObjectJson->GetStringField(TypeStr);
 
 	static const FString EnumPath = "/Script/Figma2UMG.EFigmaActionType";
-	static UEnum* EnumDef = FindObject<UEnum>(nullptr, *EnumPath, true);
+	static UEnum* EnumDef = FindObject<UEnum>(nullptr, *EnumPath, EFindObjectFlags::ExactClass);
 	if (!EnumDef)
 		return nullptr;
 

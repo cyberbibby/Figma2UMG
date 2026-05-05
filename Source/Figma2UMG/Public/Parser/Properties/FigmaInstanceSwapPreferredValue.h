@@ -16,7 +16,7 @@ public:
 	GENERATED_BODY()
 
 	UPROPERTY()
-	ENodeTypes Type;
+	ENodeTypes Type = ENodeTypes::DOCUMENT;
 
 	UPROPERTY()
 	FString Key;

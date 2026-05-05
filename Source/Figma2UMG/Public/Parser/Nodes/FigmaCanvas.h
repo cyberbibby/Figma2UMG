@@ -29,8 +29,8 @@ public:
 
 	// IFigmaContainer
 	virtual FString GetJsonArrayName() const override { return FString("Children"); };
-	virtual TArray<UFigmaNode*>& GetChildren() override { return Children; }
-	virtual const TArray<UFigmaNode*>& GetChildrenConst() const override { return Children; }
+	virtual TArray<TObjectPtr<UFigmaNode>>& GetChildren() override { return Children; }
+	virtual const TArray<TObjectPtr<UFigmaNode>>& GetChildrenConst() const override { return Children; }
 
 	// FlowTransition
 	virtual const bool HasAction(const EFigmaActionType ActionType, const EFigmaActionNodeNavigation Navigation) const override;
@@ -43,7 +43,7 @@ public:
 protected:
 
 	UPROPERTY()
-	TArray<UFigmaNode*> Children;
+	TArray<TObjectPtr<UFigmaNode>> Children;
 
 	UPROPERTY()
 	FFigmaColor BackgroundColor;
@@ -61,5 +61,5 @@ protected:
 	TArray<FFigmaExportSetting> ExportSettings;
 
 	UPROPERTY()
-	UCanvasPanel* Canvas;
+	TObjectPtr<UCanvasPanel> Canvas;
 };

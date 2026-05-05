@@ -152,9 +152,14 @@ TObjectPtr<UFigmaNode> UFigmaNode::FindTypeByID(const UClass* Class, const FStri
 
 	if (IFigmaContainer* FigmaContainer = Cast<IFigmaContainer>(this))
 	{
-		TArray<UFigmaNode*>& Children = FigmaContainer->GetChildren();
-		for (TObjectPtr<UFigmaNode> Child : Children)
+		TArray<TObjectPtr<UFigmaNode>>& Children = FigmaContainer->GetChildren();
+		for (UFigmaNode* Child : Children)
 		{
+			if (!Child)
+			{
+				continue;
+			}
+
 			TObjectPtr<UFigmaNode> Found = Child->FindTypeByID(Class, ID);
 			if (Found)
 				return Found;
@@ -203,7 +208,7 @@ void UFigmaNode::CreatePaintAssetBuilderIfNeeded(const FString& InFileKey, TArra
 	}
 }
 
-void UFigmaNode::SerializeArray(TArray<UFigmaNode*>& Array, const TSharedRef<FJsonObject> JsonObj, const FString& ArrayName)
+void UFigmaNode::SerializeArray(TArray<TObjectPtr<UFigmaNode>>& Array, const TSharedRef<FJsonObject> JsonObj, const FString& ArrayName)
 {
 	Array.Reset();
 	if (JsonObj->HasTypedField<EJson::Array>(ArrayName))
@@ -440,7 +445,7 @@ void UFigmaNode::InitializeFrom(const UFigmaNode* Other, const FString& NewId)
 	if (IFigmaContainer* FigmaContainer = Cast<IFigmaContainer>(this))
 	{
 		//TODO: To I need to clone the Children? As I can't let the same Node have 2 parents, cleaning the tree for now.
-		TArray<UFigmaNode*>& Children = FigmaContainer->GetChildren();
+		TArray<TObjectPtr<UFigmaNode>>& Children = FigmaContainer->GetChildren();
 		Children.Reset();
 	}
 }
@@ -454,11 +459,11 @@ UFigmaNode* UFigmaNode::CreateNode(const TSharedPtr<FJsonObject>& JsonObj)
 	const FString NodeTypeStr = JsonObj->GetStringField(TypeStr);
 	
 	static const FString EnumPath = "/Script/Figma2UMG.ENodeTypes";
-	static UEnum* EnumDef = FindObject<UEnum>(nullptr, *EnumPath, true);
+	static UEnum* EnumDef = FindObject<UEnum>(nullptr, *EnumPath, EFindObjectFlags::ExactClass);
 	if (!EnumDef)
 		return nullptr;
 
-	UFigmaNode* FigmaNode = nullptr;
+	TObjectPtr<UFigmaNode> FigmaNode = nullptr;
 	switch (const ENodeTypes NodeType = static_cast<ENodeTypes>(EnumDef->GetValueByName(*NodeTypeStr)))
 	{
 	case ENodeTypes::DOCUMENT:

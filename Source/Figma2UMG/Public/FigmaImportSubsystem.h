@@ -59,22 +59,22 @@ public:
 	void ResetBorderMaterials();
 private:
 	UPROPERTY()
-	TArray<UFigmaImporter*> Requests;
+	TArray<TObjectPtr<UFigmaImporter>> Requests;
 
 	UPROPERTY()
-	UObjectLibrary* FontObjectLibrary = nullptr;
+	TObjectPtr<UObjectLibrary> FontObjectLibrary = nullptr;
 
 	UPROPERTY()
-	TArray<UFont*> NewFonts;
+	TArray<TObjectPtr<UFont>> NewFonts;
 
 	UPROPERTY()
 	TArray<FGFontFamilyInfo> GoogleFontsInfo;
 
 	UPROPERTY()
-	UMaterial* BorderMaterial = nullptr;
+	TObjectPtr<UMaterial> BorderMaterial = nullptr;
 
 	UPROPERTY()
-	TMap<float, UMaterialInstanceConstant*> BorderMaterialInstances;
+	TMap<float, TObjectPtr<UMaterialInstanceConstant>> BorderMaterialInstances;
 
 	FFrameToButtonOverride* FrameToButtonOverride = nullptr;
 	FClassOverrides* WidgetOverrides = nullptr;

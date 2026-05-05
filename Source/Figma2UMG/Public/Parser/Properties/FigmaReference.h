@@ -23,7 +23,7 @@ public:
 	FString Description;
 
 	UPROPERTY()
-	bool Remote;
+	bool Remote = false;
 
 	FString RemoteFileKey;
 };

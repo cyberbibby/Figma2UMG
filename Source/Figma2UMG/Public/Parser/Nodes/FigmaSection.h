@@ -30,8 +30,8 @@ public:
 
 	// IFigmaContainer
 	virtual FString GetJsonArrayName() const override { return FString("Children"); };
-	virtual TArray<UFigmaNode*>& GetChildren() override { return Children; }
-	virtual const TArray<UFigmaNode*>& GetChildrenConst() const override { return Children; }
+	virtual TArray<TObjectPtr<UFigmaNode>>& GetChildren() override { return Children; }
+	virtual const TArray<TObjectPtr<UFigmaNode>>& GetChildrenConst() const override { return Children; }
 
 	UPROPERTY()
 	bool SectionContentsHidden = false;
@@ -52,7 +52,7 @@ public:
 	EFigmaStrokeAlign StrokeAlign;
 
 	UPROPERTY()
-	TArray<UFigmaNode*> Children;
+	TArray<TObjectPtr<UFigmaNode>> Children;
 
 	UPROPERTY()
 	FFigmaRectangle AbsoluteBoundingBox;

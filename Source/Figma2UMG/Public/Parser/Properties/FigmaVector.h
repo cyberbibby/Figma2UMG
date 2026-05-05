@@ -19,9 +19,9 @@ public:
 	}
 
 	UPROPERTY()
-	double X;
+	double X = 0.0;
 
 	UPROPERTY()
-	double Y;
+	double Y = 0.0;
 };
 

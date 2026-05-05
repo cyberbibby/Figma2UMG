@@ -16,7 +16,7 @@ public:
 	GENERATED_BODY()
 
 	UPROPERTY()
-	EFigmaComponentPropertyType Type;
+	EFigmaComponentPropertyType Type = EFigmaComponentPropertyType::BOOLEAN;
 
 	UPROPERTY()
 	FString DefaultValue;

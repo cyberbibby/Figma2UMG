@@ -45,17 +45,17 @@ protected:
 	TObjectPtr<UButton> Widget = nullptr;
 
 	UPROPERTY()
-	const UFigmaGroup* DefaultNode = nullptr;
+	TObjectPtr<UFigmaGroup> DefaultNode = nullptr;
 
 	UPROPERTY()
-	const UFigmaGroup* HoveredNode = nullptr;
+	TObjectPtr<UFigmaGroup> HoveredNode = nullptr;
 
 	UPROPERTY()
-	const UFigmaGroup* PressedNode = nullptr;
+	TObjectPtr<UFigmaGroup> PressedNode = nullptr;
 
 	UPROPERTY()
-	const UFigmaGroup* DisabledNode = nullptr;
+	TObjectPtr<UFigmaGroup> DisabledNode = nullptr;
 
 	UPROPERTY()
-	const UFigmaGroup* FocusedNode = nullptr;
+	TObjectPtr<UFigmaGroup> FocusedNode = nullptr;
 };

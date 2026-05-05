@@ -31,8 +31,8 @@ public:
 
 	// IFigmaContainer
 	virtual FString GetJsonArrayName() const override { return FString("Children"); }
-	virtual TArray<UFigmaNode*>& GetChildren() override { return Children; }
-	virtual const TArray<UFigmaNode*>& GetChildrenConst() const override { return Children; }
+	virtual TArray<TObjectPtr<UFigmaNode>>& GetChildren() override { return Children; }
+	virtual const TArray<TObjectPtr<UFigmaNode>>& GetChildrenConst() const override { return Children; }
 
 	void SetFigmaFile(UFigmaFile* InFigmaFile);
 
@@ -41,5 +41,5 @@ protected:
 	TObjectPtr<UFigmaFile> FigmaFile = nullptr;
 
 	UPROPERTY()
-	TArray<UFigmaNode*> Children;
+	TArray<TObjectPtr<UFigmaNode>> Children;
 };

@@ -52,7 +52,7 @@ public:
 	const FFigmaComponentPropertyDefinition* IsInstanceSwap() const;
 
 	UPROPERTY()
-	TArray<UFigmaNode*> Children;
+	TArray<TObjectPtr<UFigmaNode>> Children;
 
 	UPROPERTY()
 	bool Locked = false;
@@ -233,8 +233,8 @@ public:
 
 	UFigmaNode* FindNodeForOverriden(const FString& NodeId) const;
 protected:
-	void ProcessChildrenComponentPropertyReferences(TObjectPtr<UWidgetBlueprint> WidgetBp, TObjectPtr<UWidget> Widget, const TArray<UFigmaNode*>& CurrentChildren) const;
-	UFigmaNode* FindNodeForOverriden(const FString& NodeId, const TArray<UFigmaNode*>& Children) const;
+	void ProcessChildrenComponentPropertyReferences(TObjectPtr<UWidgetBlueprint> WidgetBp, TObjectPtr<UWidget> Widget, const TArray<TObjectPtr<UFigmaNode>>& CurrentChildren) const;
+	UFigmaNode* FindNodeForOverriden(const FString& NodeId, const TArray<TObjectPtr<UFigmaNode>>& Children) const;
 
 	bool IsMissingComponent = false;
 
@@ -245,5 +245,5 @@ protected:
 	TObjectPtr<UTexture> MissingComponentTexture = nullptr;
 
 	UPROPERTY()
-	mutable TArray<UFigmaInstance*> InstanceSwapValues;
+	mutable TArray<TObjectPtr<UFigmaInstance>> InstanceSwapValues;
 };

@@ -41,8 +41,8 @@ public:
 
 	// IFigmaContainer
 	virtual FString GetJsonArrayName() const override { return FString("Children"); };
-	virtual TArray<UFigmaNode*>& GetChildren() override { return Children; }
-	virtual const TArray<UFigmaNode*>& GetChildrenConst() const override { return Children; }
+	virtual TArray<TObjectPtr<UFigmaNode>>& GetChildren() override { return Children; }
+	virtual const TArray<TObjectPtr<UFigmaNode>>& GetChildrenConst() const override { return Children; }
 
 	FMargin GetPadding() const;
 
@@ -54,7 +54,7 @@ public:
 	virtual const EFigmaEasingType GetTransitionEasing() const override { return TransitionEasing; };
 
 	UPROPERTY()
-	TArray<UFigmaNode*> Children;
+	TArray<TObjectPtr<UFigmaNode>> Children;
 
 	UPROPERTY()
 	bool Locked = false;

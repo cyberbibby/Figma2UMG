@@ -32,17 +32,15 @@ public:
 	UFUNCTION()
 	virtual FString GetJsonArrayName() const = 0;
 
-	UFUNCTION()
-	virtual TArray<UFigmaNode*>& GetChildren() = 0;
+	virtual TArray<TObjectPtr<UFigmaNode>>& GetChildren() = 0;
 
-	UFUNCTION()
-	virtual const TArray<UFigmaNode*>& GetChildrenConst() const = 0;
+	virtual const TArray<TObjectPtr<UFigmaNode>>& GetChildrenConst() const = 0;
 };
 
 template <class NodeType>
 void IFigmaContainer::GetAllChildrenByType(TArray<NodeType*>& AllFiles)
 {
-	TArray<UFigmaNode*>& Children = GetChildren();
+	TArray<TObjectPtr<UFigmaNode>>& Children = GetChildren();
 	for (UFigmaNode* Node : Children)
 	{
 		if (!Node)

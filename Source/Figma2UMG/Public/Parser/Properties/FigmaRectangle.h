@@ -18,14 +18,14 @@ public:
 	FVector2D GetCenter() const;
 
 	UPROPERTY()
-	float X;
+	float X = 0.0f;
 
 	UPROPERTY()
-	float Y;
+	float Y = 0.0f;
 
 	UPROPERTY()
-	float Width;
+	float Width = 0.0f;
 
 	UPROPERTY()
-	float Height;
+	float Height = 0.0f;
 };
