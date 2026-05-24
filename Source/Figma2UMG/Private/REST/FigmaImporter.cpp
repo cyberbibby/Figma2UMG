@@ -695,6 +695,13 @@ void UFigmaImporter::FetchGoogleFontsList()
 		const UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
 		if (Importer && !Importer->HasGoogleFontsInfo())
 		{
+				if (GFontsAPIKey.IsEmpty())
+				{
+					UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaImporter] Google Fonts download is enabled, but no API key was provided. Falling back to default/local fonts."));
+					AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() { LoadOrCreateAssets(); });
+					return;
+				}
+
 				TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
 				HttpRequest->OnProcessRequestComplete().BindUObject(this, &UFigmaImporter::OnFetchGoogleFontsResponse);
 				FString URL = "https://www.googleapis.com/webfonts/v1/webfonts?key=" + GFontsAPIKey;
@@ -760,9 +767,14 @@ void UFigmaImporter::OnFetchGoogleFontsResponse(FHttpRequestPtr HttpRequest, FHt
 	}
 	else
 	{
-		const TArray<uint8>& Content = HttpResponse.Get()->GetContent();
-		FString ErrorContent = BytesToString(Content.GetData(), Content.Num());
-		UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaImporter] Failed to Fetch Google Fonts's list. Response %s"), *ErrorContent);
+		if (HttpResponse.IsValid())
+		{
+			UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaImporter] Failed to fetch the Google Fonts list (HTTP %d). Falling back to default/local fonts."), HttpResponse->GetResponseCode());
+		}
+		else
+		{
+			UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaImporter] Failed to fetch the Google Fonts list. No HTTP response was returned. Falling back to default/local fonts."));
+		}
 
 		AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {LoadOrCreateAssets(); });
 	}
@@ -821,7 +833,7 @@ void UFigmaImporter::HandleFontDownload(bool Succeeded)
 	}
 	else
 	{
-		UE_LOG_Figma2UMG(Error, TEXT("Failed to download font."));
+		UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaImporter] Failed to download a Google Font asset. Falling back to default/local fonts for the remaining unresolved families."));
 		AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {LoadOrCreateAssets(); });
 	}
 }

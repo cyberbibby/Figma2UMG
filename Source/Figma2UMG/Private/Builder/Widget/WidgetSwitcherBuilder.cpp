@@ -16,7 +16,7 @@ TObjectPtr<UWidget> UWidgetSwitcherBuilder::FindNodeWidgetInParent(const TObject
 	if (!ParentWidget)
 		return nullptr;
 
-	FString IdForName = Node->GetUniqueName();
+	FString IdForName = Node->GetWidgetName();
 	const UFigmaInstance* FigmaInstance = Cast<UFigmaInstance>(Node);
 	if (FigmaInstance && FigmaInstance->IsInstanceSwap())
 	{
@@ -53,7 +53,7 @@ void UWidgetSwitcherBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> W
 {
 	Widget = Cast<UWidgetSwitcher>(WidgetToPatch);
 	const FString NodeName = Node->GetNodeName();
-	FString WidgetName = Node->GetUniqueName();
+	FString WidgetName = Node->GetWidgetName();
 	const UFigmaInstance* FigmaInstance = Cast<UFigmaInstance>(Node);
 	if(FigmaInstance && FigmaInstance->IsInstanceSwap())
 	{

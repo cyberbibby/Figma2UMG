@@ -20,7 +20,7 @@ void UTextBlockWidgetBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> 
 	Widget = Cast<UTextBlock>(WidgetToPatch);
 
 	const FString NodeName = Node->GetNodeName();
-	const FString WidgetName = Node->GetUniqueName();
+	const FString WidgetName = Node->GetWidgetName();
 	if (Widget)
 	{
 		UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();

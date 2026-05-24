@@ -8,6 +8,7 @@
 #include "ImageWidgetBuilder.generated.h"
 
 class UTexture2DBuilder;
+class UTexture2D;
 class UWidget;
 class UImage;
 
@@ -17,6 +18,7 @@ class FIGMA2UMG_API UImageWidgetBuilder : public UObject, public IWidgetBuilder
 public:
 	GENERATED_BODY()
 	void SetTexture2DBuilder(const TObjectPtr<UTexture2DBuilder>& InTexture2DBuilder);
+	void SetTexture(const TObjectPtr<UTexture2D>& InTexture);
 	void SetMaterial(const TObjectPtr<UMaterialInterface>& InMaterial, const FLinearColor& InColor);
 	void SetColor(const FLinearColor& InColor);
 
@@ -34,6 +36,9 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UTexture2DBuilder> Texture2DBuilder = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<UTexture2D> Texture = nullptr;
 
 	UPROPERTY()
 	TObjectPtr<UMaterialInterface> Material = nullptr;

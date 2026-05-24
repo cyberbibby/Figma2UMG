@@ -24,6 +24,11 @@ void UImageWidgetBuilder::SetTexture2DBuilder(const TObjectPtr<UTexture2DBuilder
 	Texture2DBuilder = InTexture2DBuilder;
 }
 
+void UImageWidgetBuilder::SetTexture(const TObjectPtr<UTexture2D>& InTexture)
+{
+	Texture = InTexture;
+}
+
 void UImageWidgetBuilder::SetMaterial(const TObjectPtr<UMaterialInterface>& InMaterial, const FLinearColor& InColor)
 {
 	Material = InMaterial;
@@ -41,7 +46,7 @@ void UImageWidgetBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> Widg
 	Widget = Cast<UImage>(WidgetToPatch);
 
 	const FString NodeName = Node->GetNodeName();
-	const FString WidgetName = Node->GetUniqueName();
+	const FString WidgetName = Node->GetWidgetName();
 	if (Widget)
 	{
 		UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
@@ -137,9 +142,9 @@ void UImageWidgetBuilder::Setup() const
 
 void UImageWidgetBuilder::SetupFill() const
 {
-	if (const TObjectPtr<UTexture2D>& Texture = Texture2DBuilder ? Texture2DBuilder->GetAsset() : nullptr)
+	if (const TObjectPtr<UTexture2D>& BrushTexture = Texture2DBuilder ? Texture2DBuilder->GetAsset() : Texture)
 	{
-		Widget->SetBrushFromTexture(Texture, false);
+		Widget->SetBrushFromTexture(BrushTexture, false);
 		FSlateBrush Brush = Widget->GetBrush();
 		Brush.SetImageSize(Node->GetAbsoluteSize(IsTopWidgetForNode()));
 		Brush.DrawAs = GetDrawAs(Brush.DrawAs);

@@ -28,8 +28,7 @@ public:
 
 	template<class NodeType>
 	void GetAllChildrenByType(TArray<NodeType*>& AllFiles);
-
-	UFUNCTION()
+	
 	virtual FString GetJsonArrayName() const = 0;
 
 	virtual TArray<TObjectPtr<UFigmaNode>>& GetChildren() = 0;

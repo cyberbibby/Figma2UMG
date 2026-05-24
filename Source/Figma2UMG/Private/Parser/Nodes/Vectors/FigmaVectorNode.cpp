@@ -7,8 +7,10 @@
 #include "Builder/Asset/MaterialBuilder.h"
 #include "Builder/Asset/Texture2DBuilder.h"
 #include "Builder/Widget/ImageWidgetBuilder.h"
+#include "Figma2UMGModule.h"
 #include "Parser/Properties/FigmaAction.h"
 #include "Parser/Properties/FigmaTrigger.h"
+#include "Parser/Properties/FigmaUMGSemanticName.h"
 #include "REST/FigmaImporter.h"
 
 void UFigmaVectorNode::PostSerialize(const TObjectPtr<UFigmaNode> InParent, const TSharedRef<FJsonObject> JsonObj)
@@ -88,6 +90,23 @@ FString UFigmaVectorNode::GetPackageNameForBuilder(const TScriptInterface<IAsset
 
 TScriptInterface<IWidgetBuilder> UFigmaVectorNode::CreateWidgetBuilders(bool IsRoot/*= false*/, bool AllowFrameButton/*= true*/) const
 {
+	const FFigmaUMGSemanticName SemanticName = GetUMGSemanticName();
+	if (SemanticName.Role == EFigmaUMGWidgetRole::Ignore)
+	{
+		return nullptr;
+	}
+
+	if (SemanticName.Role == EFigmaUMGWidgetRole::Text || SemanticName.Role == EFigmaUMGWidgetRole::RichText)
+	{
+		UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaVectorNode::CreateWidgetBuilders] VECTOR node %s explicitly requests UMG/%s. Falling back to image import."), *GetNodeName(), LexToString(SemanticName.Role));
+	}
+	else if (SemanticName.Role != EFigmaUMGWidgetRole::Auto
+		&& SemanticName.Role != EFigmaUMGWidgetRole::Image
+		&& SemanticName.Role != EFigmaUMGWidgetRole::Decor)
+	{
+		UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaVectorNode::CreateWidgetBuilders] VECTOR node %s explicitly requests UMG/%s. Falling back to image import."), *GetNodeName(), LexToString(SemanticName.Role));
+	}
+
 	UImageWidgetBuilder* ImageWidgetBuilder = NewObject<UImageWidgetBuilder>();
 	ImageWidgetBuilder->SetNode(this);
 	ImageWidgetBuilder->SetTexture2DBuilder(AssetBuilder);

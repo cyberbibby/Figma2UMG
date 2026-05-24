@@ -42,7 +42,7 @@ TObjectPtr<WidgetType> UPanelWidgetBuilder::Patch(TObjectPtr<UWidgetTree> Widget
 {
 	TObjectPtr<WidgetType> PatchedWidget = nullptr;
 	const FString NodeName = Node->GetNodeName();
-	FString WidgetName = Node->GetUniqueName();
+	const FString WidgetName = GetWidgetName();
 
 	if (const USizeBox* SizeBoxWrapper = Cast<USizeBox>(WidgetToPatch))
 	{

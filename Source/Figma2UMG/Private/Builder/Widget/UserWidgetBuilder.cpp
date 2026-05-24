@@ -46,7 +46,7 @@ void UUserWidgetBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> Widge
 	Widget = Cast<UUserWidget>(WidgetToPatch);
 
 	const FString NodeName = Node->GetNodeName();
-	const FString WidgetName = Node->GetUniqueName();
+	const FString WidgetName = Node->GetWidgetName();
 	if (UWidgetBlueprint* ComponentAsset = WidgetBlueprintBuilder ? WidgetBlueprintBuilder->GetAsset() : nullptr)
 	{
 		if (Widget && Widget.GetClass()->ClassGeneratedBy == ComponentAsset)
@@ -592,7 +592,7 @@ void UUserWidgetBuilder::PatchInteractiveStateDisabled(const UFigmaInstance* Fig
 			continue;
 		}
 
-		const FString SetEnabledFunctionStartName = SetEnabledStr + SubFigmaInstance->GetUniqueName(true);
+		const FString SetEnabledFunctionStartName = SetEnabledStr + SubFigmaInstance->GetWidgetName(true);
 		UFunction* Function = nullptr;
 		for (TFieldIterator<UFunction>It(ComponentAsset->SkeletonGeneratedClass, EFieldIterationFlags::Default); It; ++It)
 		{

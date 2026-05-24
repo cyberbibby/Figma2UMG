@@ -7,8 +7,10 @@
 #include "Figma2UMGModule.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/CanvasPanel.h"
+#include "Components/HorizontalBox.h"
 #include "Components/PanelWidget.h"
 #include "Components/Spacer.h"
+#include "Components/VerticalBox.h"
 #include "Components/Widget.h"
 #include "Components/WrapBox.h"
 #include "Parser/Nodes/FigmaGroup.h"
@@ -196,7 +198,8 @@ void UMultiChildBuilder::FixSpacers(const TObjectPtr<UPanelWidget>& PanelWidget)
 		CounterAxisSpacing = FigmaGroup->CounterAxisSpacing;
 	}
 
-	if ((ItemSpacing == 0.0f && CounterAxisSpacing == 0.0f) || PanelWidget->IsA<UCanvasPanel>() || PanelWidget->IsA<UWrapBox>())
+	const bool bUseSlotPaddingSpacing = PanelWidget->IsA<UHorizontalBox>() || PanelWidget->IsA<UVerticalBox>();
+	if (bUseSlotPaddingSpacing || (ItemSpacing == 0.0f && CounterAxisSpacing == 0.0f) || PanelWidget->IsA<UCanvasPanel>() || PanelWidget->IsA<UWrapBox>())
 	{
 		for (int i = 0; i < PanelWidget->GetChildrenCount(); i++)
 		{

@@ -35,6 +35,21 @@ void IWidgetBuilder::SetParent(TScriptInterface<IWidgetBuilder> InParent)
 	Parent = InParent;
 }
 
+void IWidgetBuilder::SetWidgetNameOverride(const FString& InWidgetName)
+{
+	WidgetNameOverride = InWidgetName;
+}
+
+FString IWidgetBuilder::GetWidgetName() const
+{
+	if (!WidgetNameOverride.IsEmpty())
+	{
+		return WidgetNameOverride;
+	}
+
+	return Node ? Node->GetWidgetName() : FString(TEXT("Widget"));
+}
+
 TObjectPtr<UWidget> IWidgetBuilder::FindNodeWidgetInParent(const TObjectPtr<UPanelWidget>& ParentWidget) const
 {
 	if (!ParentWidget)

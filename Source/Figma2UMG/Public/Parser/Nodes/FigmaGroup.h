@@ -18,11 +18,13 @@
 #include "Parser/Properties/FigmaRectangle.h"
 #include "Parser/Properties/FigmaStyleRef.h"
 #include "Parser/Properties/FigmaTransform.h"
+#include "Parser/Properties/FigmaUMGSemanticName.h"
 #include "Parser/Properties/FigmaVector.h"
 
 #include "FigmaGroup.generated.h"
 
 class UButtonWidgetBuilder;
+class UPanelWidgetBuilder;
 
 UCLASS()
 class FIGMA2UMG_API UFigmaGroup : public UFigmaNode, public IFigmaContainer, public IFlowTransition
@@ -221,8 +223,10 @@ public:
 protected:
 	bool IsButton() const;
 	TScriptInterface<UButtonWidgetBuilder> CreateButtonBuilder() const;
-	TScriptInterface<IWidgetBuilder> CreateContainersBuilder() const;
+	TScriptInterface<IWidgetBuilder> CreateBorderBuilder() const;
+	TScriptInterface<IWidgetBuilder> CreateContainersBuilder(EFigmaUMGWidgetRole ForcedRole = EFigmaUMGWidgetRole::Auto, bool bForceBorder = false, bool bSuppressVisualWrappers = false, const FString& PanelNameOverride = FString()) const;
+	UPanelWidgetBuilder* CreatePanelBuilderForRole(EFigmaUMGWidgetRole Role) const;
+	UPanelWidgetBuilder* CreatePanelBuilderForLayout() const;
 
 	void FixSpacers(const TObjectPtr<UPanelWidget>& PanelWidget) const;
 };
-

@@ -23,7 +23,24 @@ void UBorderWidgetBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> Wid
 	}	
 
 	const FString NodeName = Node->GetNodeName();
-	const FString WidgetName = "Border-" + Node->GetUniqueName();
+	const FFigmaUMGSemanticName SemanticName = Node->GetUMGSemanticName();
+	const bool bIsExplicitBorder = SemanticName.Role == EFigmaUMGWidgetRole::Border;
+	const FString WidgetName = bIsExplicitBorder
+		? Node->GetWidgetName()
+		: TEXT("Border-") + Node->GetWidgetName();
+	auto ForceRenameWidget = [](const FString& InName, const TObjectPtr<UWidget>& InWidget)
+		{
+			if (!InWidget)
+				return;
+
+			const FString CurrentName = InWidget->GetName();
+			if (CurrentName.Equals(InName, ESearchCase::IgnoreCase) || CurrentName.StartsWith(InName + TEXT("_"), ESearchCase::IgnoreCase))
+				return;
+
+			const FString UniqueName = MakeUniqueObjectName(InWidget->GetOuter(), InWidget->GetClass(), *InName).ToString();
+			InWidget->Rename(*UniqueName);
+		};
+
 	if (Widget)
 	{
 		UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
@@ -34,7 +51,15 @@ void UBorderWidgetBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> Wid
 			NewBorder->SetContent(Widget->GetContent());
 			Widget = NewBorder;
 		}
-		UFigmaImportSubsystem::TryRenameWidget(WidgetName, Widget);
+
+		if (bIsExplicitBorder)
+		{
+			ForceRenameWidget(WidgetName, Widget);
+		}
+		else
+		{
+			UFigmaImportSubsystem::TryRenameWidget(WidgetName, Widget);
+		}
 	}
 	else
 	{
@@ -45,6 +70,13 @@ void UBorderWidgetBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> Wid
 			Widget->SetContent(WidgetToPatch);
 		}
 	}
+
+#if WITH_EDITOR
+	if (bIsExplicitBorder && Widget)
+	{
+		Widget->SetDisplayLabel(WidgetName);
+	}
+#endif
 
 	Insert(WidgetBlueprint->WidgetTree, WidgetToPatch, Widget);
 

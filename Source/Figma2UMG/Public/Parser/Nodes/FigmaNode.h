@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 
 #include "Parser/Properties/FigmaEnums.h"
+#include "Parser/Properties/FigmaUMGSemanticName.h"
 #include "Dom/JsonObject.h"
 #include "FigmaNode.generated.h"
 
@@ -38,8 +39,11 @@ public:
 
 	FString GetNodeName() const;
 	FString GetUniqueName(bool RemoveInstanceId = false) const;
+	FString GetWidgetName(bool RemoveInstanceId = false) const;
 	virtual FString GetUAssetName() const;
 	ESlateVisibility GetVisibility() const;
+
+	FFigmaUMGSemanticName GetUMGSemanticName() const;
 
 	FVector2D GetPosition() const;
 	float GetRotation() const;
@@ -100,6 +104,8 @@ protected:
 	TObjectPtr<UFigmaNode> ParentNode = nullptr;
 
 	FString PackagePath;
+
+	static FString SanitizeObjectName(const FString& InName);
 
 private:
 	UPROPERTY()

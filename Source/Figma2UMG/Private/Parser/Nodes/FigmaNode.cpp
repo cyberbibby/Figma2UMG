@@ -34,6 +34,7 @@
 #include "Parser/Nodes/Vectors/FigmaText.h"
 #include "Parser/Nodes/Vectors/FigmaVectorNode.h"
 #include "Parser/Nodes/Vectors/FigmaWashiTape.h"
+#include "UObject/NameTypes.h"
 
 FString UFigmaNode::GetIdForName() const
 {
@@ -60,9 +61,44 @@ FString UFigmaNode::GetUniqueName(bool RemoveInstanceId) const
 	return Name + "--" + IdForName;
 }
 
+FString UFigmaNode::GetWidgetName(bool RemoveInstanceId) const
+{
+	const FFigmaUMGSemanticName SemanticName = GetUMGSemanticName();
+	FString BaseName;
+	if (SemanticName.HasExplicitRole())
+	{
+		BaseName = LexToString(SemanticName.Role);
+		if (!SemanticName.SemanticName.IsEmpty())
+		{
+			BaseName += TEXT("_") + SemanticName.SemanticName;
+		}
+	}
+	else
+	{
+		BaseName = Name;
+	}
+
+	FString IdForName = GetIdForName();
+	if (RemoveInstanceId)
+	{
+		int Index = INDEX_NONE;
+		if (IdForName.FindChar(';', Index))
+		{
+			IdForName.RemoveAt(0, Index + 1);
+		}
+	}
+
+	return SanitizeObjectName(BaseName + TEXT("--") + IdForName);
+}
+
 FString UFigmaNode::GetUAssetName() const
 {
 	return GetUniqueName();
+}
+
+FFigmaUMGSemanticName UFigmaNode::GetUMGSemanticName() const
+{
+	return FFigmaUMGSemanticName::Parse(GetNodeName());
 }
 
 ESlateVisibility UFigmaNode::GetVisibility() const
@@ -606,4 +642,18 @@ void UFigmaNode::ProcessComponentPropertyReference(TObjectPtr<UWidgetBlueprint> 
 
 	UE_LOG_Figma2UMG(Error, TEXT("[ProcessComponentPropertyReference] Variable '%s' not found in UWidgetBlueprint %s or UWidget %s."), *PropertyReference.Value, *WidgetBP->GetName(), *Widget->GetName());
 
+}
+
+FString UFigmaNode::SanitizeObjectName(const FString& InName)
+{
+	FString SanitizedName = InName;
+	for (TCHAR& Character : SanitizedName)
+	{
+		if (FCString::Strchr(INVALID_OBJECTNAME_CHARACTERS, Character) != nullptr)
+		{
+			Character = TEXT('_');
+		}
+	}
+
+	return SanitizedName.IsEmpty() ? TEXT("Widget") : SanitizedName;
 }

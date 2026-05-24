@@ -23,7 +23,12 @@ void UFontBuilder::LoadOrCreateAssets()
 	{
 		if(FacesRawData.IsEmpty())
 		{
-			UE_LOG_Figma2UMG(Error, TEXT("Failed to import Font %s"), *FontFamily);
+			static TSet<FString> ReportedMissingFonts;
+			if (!ReportedMissingFonts.Contains(FontFamily))
+			{
+				ReportedMissingFonts.Add(FontFamily);
+				UE_LOG_Figma2UMG(Warning, TEXT("Font %s was not imported. Falling back to the default UMG font."), *FontFamily);
+			}
 			return;
 		}
 

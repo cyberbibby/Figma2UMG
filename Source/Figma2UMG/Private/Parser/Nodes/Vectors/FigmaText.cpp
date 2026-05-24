@@ -11,6 +11,7 @@
 #include "Builder/Widget/TextBlockWidgetBuilder.h"
 #include "Components/TextBlock.h"
 #include "Dom/JsonObject.h"
+#include "Parser/Properties/FigmaUMGSemanticName.h"
 #include "Serialization/JsonTypes.h"
 
 void UFigmaText::PostSerialize(const TObjectPtr<UFigmaNode> InParent, const TSharedRef<FJsonObject> JsonObj)
@@ -69,6 +70,19 @@ FString UFigmaText::GetPackageNameForBuilder(const TScriptInterface<IAssetBuilde
 
 TScriptInterface<IWidgetBuilder> UFigmaText::CreateWidgetBuilders(bool IsRoot/*= false*/, bool AllowFrameButton/*= true*/) const
 {
+	const FFigmaUMGSemanticName SemanticName = GetUMGSemanticName();
+	if (SemanticName.Role == EFigmaUMGWidgetRole::Ignore)
+	{
+		return nullptr;
+	}
+
+	if (SemanticName.Role != EFigmaUMGWidgetRole::Auto
+		&& SemanticName.Role != EFigmaUMGWidgetRole::Text
+		&& SemanticName.Role != EFigmaUMGWidgetRole::RichText)
+	{
+		UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaText::CreateWidgetBuilders] TEXT node %s explicitly requests UMG/%s. Keeping UTextBlock fallback."), *GetNodeName(), LexToString(SemanticName.Role));
+	}
+
 	UTextBlockWidgetBuilder* TextBlockWidgetBuilder = NewObject<UTextBlockWidgetBuilder>();
 	TextBlockWidgetBuilder->SetNode(this);
 

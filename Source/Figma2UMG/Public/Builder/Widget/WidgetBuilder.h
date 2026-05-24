@@ -35,6 +35,9 @@ public:
 	UFUNCTION()
 	virtual void SetParent(TScriptInterface<IWidgetBuilder> InParent);
 
+	const UFigmaNode* GetNode() const { return Node; }
+	void SetWidgetNameOverride(const FString& InWidgetName);
+
 	virtual TObjectPtr<UWidget> FindNodeWidgetInParent(const TObjectPtr<UPanelWidget>& ParentWidget) const;
 
 	virtual void PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> WidgetBlueprint, const TObjectPtr<UWidget>& WidgetToPatch) = 0;
@@ -81,6 +84,7 @@ protected:
 	EVerticalAlignment Convert(EFigmaCounterAxisAlignItems LayoutConstraint) const;
 
 	void ProcessComponentPropertyReference(const TObjectPtr<UWidgetBlueprint>& WidgetBlueprint, const TObjectPtr<UWidget>& Widget, const TPair<FString, FString>& PropertyReference) const;
+	FString GetWidgetName() const;
 
 	const UFigmaNode* Node = nullptr;
 
@@ -95,6 +99,7 @@ protected:
 
 private:
 	TScriptInterface<IWidgetBuilder> Parent = nullptr;
+	FString WidgetNameOverride;
 };
 
 template <class WidgetT>

@@ -25,11 +25,11 @@ void UButtonWidgetBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> Wid
 {
 	Widget = Cast<UButton>(WidgetToPatch);
 	const FString NodeName = Node->GetNodeName();
-	const FString WidgetName = Node->GetUniqueName();
+	const FString WidgetName = Node->GetWidgetName();
 	if (Widget)
 	{
 		UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
-		UClass* ClassOverride = Importer ? Importer->GetOverrideClassForNode<UBorder>(NodeName) : nullptr;
+		UClass* ClassOverride = Importer ? Importer->GetOverrideClassForNode<UButton>(NodeName) : nullptr;
 		if (ClassOverride && Widget->GetClass() != ClassOverride)
 		{
 			UButton* NewButton = UFigmaImportSubsystem::NewWidget<UButton>(WidgetBlueprint->WidgetTree, NodeName , WidgetName, ClassOverride);
