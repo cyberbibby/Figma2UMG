@@ -21,6 +21,7 @@
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/SlowTaskStack.h"
 #include "Parser/FigmaFile.h"
+#include "Parser/FigmaJsonImport.h"
 #include "Misc/FileHelper.h"
 
 UFigmaImporter::UFigmaImporter(const FObjectInitializer& ObjectInitializer)
@@ -41,7 +42,7 @@ UFigmaImporter::UFigmaImporter(const FObjectInitializer& ObjectInitializer)
 void UFigmaImporter::Init(const TObjectPtr<URequestParams> InProperties, const FOnFigmaImportUpdateStatusCB& InRequesterCallback)
 {
 	AccessToken = InProperties->AccessToken;
-	FileKey = InProperties->FileKey;
+	FileKey = URequestParams::ExtractFileKeyFromInput(InProperties->FileKey);
 	if(!InProperties->Ids.IsEmpty())
 	{
 
@@ -54,7 +55,7 @@ void UFigmaImporter::Init(const TObjectPtr<URequestParams> InProperties, const F
 
 	for (FString Element : InProperties->LibraryFileKeys)
 	{
-		LibraryFileKeys.Add(Element);
+		LibraryFileKeys.Add(URequestParams::ExtractFileKeyFromInput(Element));
 	}
 
 	ContentRootFolder = InProperties->ContentRootFolder;
@@ -336,11 +337,8 @@ void UFigmaImporter::OnFigmaLibraryFileRequestReceived(FHttpRequestPtr HttpReque
 
 		AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this, JsonObj, CurrentFile]()
 			{
-				constexpr int64 CheckFlags = 0;
-				constexpr int64 SkipFlags = 0;
-				constexpr bool StrictMode = false;
 				FText OutFailReason;
-				if (FJsonObjectConverter::JsonObjectToUStruct(JsonObj.ToSharedRef(), CurrentFile->StaticClass(), CurrentFile, CheckFlags, SkipFlags, StrictMode, &OutFailReason))
+				if (FigmaJsonImport::JsonObjectToUStruct(JsonObj.ToSharedRef(), CurrentFile->StaticClass(), CurrentFile, &OutFailReason))
 				{
 					MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PostSerializeLib", "PostSerialize Library File."));
 					CurrentFile->PostSerialize(CurrentLibraryFileKey, ContentRootFolder, JsonObj.ToSharedRef());
@@ -375,11 +373,8 @@ void UFigmaImporter::OnFigmaFileRequestReceived(FHttpRequestPtr HttpRequest, FHt
 
 		AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this, JsonObj]()
 			{
-				constexpr int64 CheckFlags = 0;
-				constexpr int64 SkipFlags = 0;
-				constexpr bool StrictMode = false;
 				FText OutFailReason;
-				if (FJsonObjectConverter::JsonObjectToUStruct(JsonObj.ToSharedRef(), File->StaticClass(), File, CheckFlags, SkipFlags, StrictMode, &OutFailReason))
+				if (FigmaJsonImport::JsonObjectToUStruct(JsonObj.ToSharedRef(), File->StaticClass(), File, &OutFailReason))
 				{
 					UE_LOG_Figma2UMG(Display, TEXT("Post-Serialize"));
 					MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PostSerializeFile", "PostSerialize Design File."));
@@ -487,12 +482,9 @@ void UFigmaImporter::OnFigmaImagesRefURLReceived(FHttpRequestPtr HttpRequest, FH
 	TSharedPtr<FJsonObject> JsonObj = ParseRequestReceived(TEXT("[Figma images request] "), HttpResponse);
 	if (JsonObj.IsValid())
 	{
-		constexpr int64 CheckFlags = 0;
-		constexpr int64 SkipFlags = 0;
-		constexpr bool StrictMode = false;
 		FText OutFailReason;
 		FImagesRefRequestResult ImagesRefRequestResult;
-		if (FJsonObjectConverter::JsonObjectToUStruct(JsonObj.ToSharedRef(), &ImagesRefRequestResult, CheckFlags, SkipFlags, StrictMode, &OutFailReason))
+		if (FigmaJsonImport::JsonObjectToUStruct(JsonObj.ToSharedRef(), &ImagesRefRequestResult, &OutFailReason))
 		{
 			UE_LOG_Figma2UMG(Display, TEXT("[Figma images Request] %u images received from Figma API."), ImagesRefRequestResult.Meta.Images.Num());
 			for (TPair<FString, FString> Element : ImagesRefRequestResult.Meta.Images)
@@ -575,13 +567,10 @@ void UFigmaImporter::OnFigmaImagesURLReceived(FHttpRequestPtr HttpRequest, FHttp
 	TSharedPtr<FJsonObject> JsonObj = ParseRequestReceived(TEXT("[Figma images request] "), HttpResponse);
 	if (JsonObj.IsValid())
 	{
-		constexpr int64 CheckFlags = 0;
-		constexpr int64 SkipFlags = 0;
-		constexpr bool StrictMode = false;
 		FText OutFailReason;
 		TryFixNullImagesURLResponse(JsonObj);
 
-		if (FJsonObjectConverter::JsonObjectToUStruct(JsonObj.ToSharedRef(), &ImagesRequestResult, CheckFlags, SkipFlags, StrictMode, &OutFailReason))
+		if (FigmaJsonImport::JsonObjectToUStruct(JsonObj.ToSharedRef(), &ImagesRequestResult, &OutFailReason))
 		{
 			int ValidURL = 0;
 			for (TPair<FString, FString> Element : ImagesRequestResult.Images)
@@ -739,11 +728,8 @@ void UFigmaImporter::OnFetchGoogleFontsResponse(FHttpRequestPtr HttpRequest, FHt
 					FGFontFamilyInfo& FontFamilyInfo = GoogleFontsInfo.Emplace_GetRef();
 
 
-					constexpr int64 CheckFlags = 0;
-					constexpr int64 SkipFlags = 0;
-					constexpr bool StrictMode = false;
 					FText OutFailReason;
-					if (FJsonObjectConverter::JsonObjectToUStruct(FontObject.ToSharedRef(), &FontFamilyInfo, CheckFlags, SkipFlags, StrictMode, &OutFailReason))
+					if (FigmaJsonImport::JsonObjectToUStruct(FontObject.ToSharedRef(), &FontFamilyInfo, &OutFailReason))
 					{
 						FontFamilyInfo.Family = UPackageTools::SanitizePackageName(FontFamilyInfo.Family.Replace(TEXT(" "), TEXT("")));
 					}

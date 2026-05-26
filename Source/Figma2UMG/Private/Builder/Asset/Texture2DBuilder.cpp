@@ -49,13 +49,24 @@ void UTexture2DBuilder::LoadOrCreateAssets()
 		}
 		else
 		{
-			UPackage* Pkg = CreatePackage(*PackagePath);
+			UPackage* Pkg = TextureAsset->GetPackage();
+			if (!Pkg || Pkg->GetName() != PackageName)
+			{
+				Pkg = CreatePackage(*PackageName);
+			}
+
 			const EObjectFlags Flags = RF_Public | RF_Standalone | RF_Transactional;
 			UE_LOG_Figma2UMG(Display, TEXT("Reimport UAsset %s/%s of type %s"), *PackagePath, *AssetName, *AssetClass->GetDisplayNameText().ToString());
-			TextureAsset = Cast<UTexture2D>(Factory->FactoryCreateNew(AssetClass, Pkg, *AssetName, Flags, nullptr, GWarn));
-			if (TextureAsset)
+			UTexture2D* ReimportedTextureAsset = Cast<UTexture2D>(Factory->FactoryCreateNew(AssetClass, Pkg, *AssetName, Flags, nullptr, GWarn));
+			if (ReimportedTextureAsset)
 			{
+				TextureAsset = ReimportedTextureAsset;
 				FAssetRegistryModule::AssetCreated(TextureAsset);
+			}
+			else
+			{
+				UE_LOG_Figma2UMG(Warning, TEXT("Failed to reimport UAsset %s/%s. The texture package will not be saved."), *PackagePath, *AssetName);
+				TextureAsset = nullptr;
 			}
 		}
 
@@ -66,6 +77,8 @@ void UTexture2DBuilder::LoadOrCreateAssets()
 	{
 		TextureAsset->SetFlags(RF_Transactional);
 		TextureAsset->Modify();
+		TextureAsset->MarkPackageDirty();
+		TextureAsset->PostEditChange();
 	}
 }
 

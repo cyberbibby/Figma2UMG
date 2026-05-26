@@ -29,10 +29,7 @@ void FFigma2UMGManager::Initialize()
 
 void FFigma2UMGManager::Shutdown()
 {
-	if (ImporterDockTab != nullptr && ImporterDockTab.IsValid())
-	{
-		ImporterDockTab->RequestCloseTab();
-	}
+	ImporterDockTab.Reset();
 
 	FFigma2UMGStyle::Shutdown();
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(ImporterTabName);
@@ -73,6 +70,10 @@ void FFigma2UMGManager::SetupMenuItem()
 void FFigma2UMGManager::CreateWindow()
 {
 	FGlobalTabmanager::Get()->TryInvokeTab(ImporterTabName);
+	if (!ImporterDockTab.IsValid())
+	{
+		return;
+	}
 	
 	// Set desired window size (if the desired window size is less than main window size)
 	// Rationale: the main window is mostly maximized - so the size is equal to screen size

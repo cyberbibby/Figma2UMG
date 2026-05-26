@@ -5,6 +5,7 @@
 
 #include "Figma2UMGModule.h"
 #include "JsonObjectConverter.h"
+#include "Parser/FigmaJsonImport.h"
 
 UFigmaTrigger* UFigmaTrigger::CreateTrigger(const TSharedPtr<FJsonObject>& ObjectJson)
 {
@@ -49,7 +50,7 @@ UFigmaTrigger* UFigmaTrigger::CreateTrigger(const TSharedPtr<FJsonObject>& Objec
 	}
 
 
-	if (FigmaTrigger != nullptr && !FJsonObjectConverter::JsonObjectToUStruct(ObjectJson.ToSharedRef(), FigmaTrigger->GetClass(), FigmaTrigger))
+	if (FigmaTrigger != nullptr && !FigmaJsonImport::JsonObjectToUStruct(ObjectJson.ToSharedRef(), FigmaTrigger->GetClass(), FigmaTrigger))
 	{
 		UE_LOG_Figma2UMG(Error, TEXT("[UFigmaTrigger::CreateTrigger] Failed to parse Trigger of Type %s."), *NodeTypeStr);
 	}

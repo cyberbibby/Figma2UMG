@@ -7,6 +7,7 @@
 #include "Figma2UMGModule.h"
 #include "Async/Async.h"
 #include "Builder/Asset/WidgetBlueprintBuilder.h"
+#include "Parser/FigmaJsonImport.h"
 #include "Parser/Nodes/FigmaDocument.h"
 #include "Parser/Nodes/FigmaInstance.h"
 #include "REST/FigmaImporter.h"
@@ -18,11 +19,29 @@ void UFigmaFile::PostSerialize(const FString& InFileKey, const FString& InPackag
 	static FString DocumentStr("Document");
 	FileKey = InFileKey;
 	PackagePath = InPackagePath;
-	if(Document)
+
+	const TSharedPtr<FJsonObject>* DocumentJsonObject = nullptr;
+	if (!fileJsonObject->TryGetObjectField(DocumentStr, DocumentJsonObject) || !DocumentJsonObject || !DocumentJsonObject->IsValid())
 	{
-		Document->SetFigmaFile(this);
-		Document->PostSerialize(nullptr, fileJsonObject->GetObjectField(DocumentStr).ToSharedRef());
+		static const FString StandardDocumentStr("document");
+		if (!fileJsonObject->TryGetObjectField(StandardDocumentStr, DocumentJsonObject) || !DocumentJsonObject || !DocumentJsonObject->IsValid())
+		{
+			UE_LOG_Figma2UMG(Error, TEXT("[UFigmaFile::PostSerialize] Document field was not found in Figma file %s."), *Name);
+			return;
+		}
 	}
+
+	Document = NewObject<UFigmaDocument>();
+	FText OutFailReason;
+	if (!FigmaJsonImport::JsonObjectToUStruct((*DocumentJsonObject).ToSharedRef(), Document->GetClass(), Document, &OutFailReason))
+	{
+		UE_LOG_Figma2UMG(Error, TEXT("[UFigmaFile::PostSerialize] Failed to parse Document for Figma file %s. %s"), *Name, *OutFailReason.ToString());
+		Document = nullptr;
+		return;
+	}
+
+	Document->SetFigmaFile(this);
+	Document->PostSerialize(nullptr, (*DocumentJsonObject).ToSharedRef());
 }
 
 FString UFigmaFile::FindComponentName(const FString& ComponentId)
@@ -479,4 +498,3 @@ bool UFigmaFile::CreateAssetBuilder(const FString& InFileKey, UFigmaNode& Node, 
 
 	return Created;
 }
-

@@ -5,6 +5,7 @@
 #include "Parser/Nodes/FigmaNode.h"
 
 #include "Figma2UMGModule.h"
+#include "Parser/FigmaJsonImport.h"
 #include "Parser/Nodes/FigmaCanvas.h"
 #include "Parser/Nodes/FigmaComponent.h"
 #include "Parser/Nodes/FigmaComponentSet.h"
@@ -573,7 +574,7 @@ UFigmaNode* UFigmaNode::CreateNode(const TSharedPtr<FJsonObject>& JsonObj)
 		break;
 	}
 
-	if (FigmaNode != nullptr && FJsonObjectConverter::JsonObjectToUStruct(JsonObj.ToSharedRef(), FigmaNode->GetClass(), FigmaNode))
+	if (FigmaNode != nullptr && FigmaJsonImport::JsonObjectToUStruct(JsonObj.ToSharedRef(), FigmaNode->GetClass(), FigmaNode))
 	{
 		FigmaNode->PostSerialize(this, JsonObj.ToSharedRef());
 	}

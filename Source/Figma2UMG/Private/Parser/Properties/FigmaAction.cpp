@@ -5,6 +5,7 @@
 
 #include "Figma2UMGModule.h"
 #include "JsonObjectConverter.h"
+#include "Parser/FigmaJsonImport.h"
 
 UFigmaAction* UFigmaAction::CreateAction(const TSharedPtr<FJsonObject>& ObjectJson)
 {
@@ -50,7 +51,7 @@ UFigmaAction* UFigmaAction::CreateAction(const TSharedPtr<FJsonObject>& ObjectJs
 	}
 
 
-	if (FigmaAction != nullptr && !FJsonObjectConverter::JsonObjectToUStruct(ObjectJson.ToSharedRef(), FigmaAction->GetClass(), FigmaAction))
+	if (FigmaAction != nullptr && !FigmaJsonImport::JsonObjectToUStruct(ObjectJson.ToSharedRef(), FigmaAction->GetClass(), FigmaAction))
 	{
 		UE_LOG_Figma2UMG(Error, TEXT("[UFigmaAction::CreateAction] Failed to parse Action of Type %s."), *NodeTypeStr);
 	}

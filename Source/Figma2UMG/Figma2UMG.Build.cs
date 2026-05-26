@@ -9,6 +9,7 @@ public class Figma2UMG : ModuleRules
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
         //bUsePrecompiled = true;
+        bUseUnity = false;
 
         PublicIncludePaths.AddRange(
 			new string[] {
