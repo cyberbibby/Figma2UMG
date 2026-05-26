@@ -18,10 +18,10 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Figma2UMG")
 	FString AccessToken;
 
-	UPROPERTY(Config, EditAnywhere, Category = "Figma2UMG")
+	UPROPERTY(Config, EditAnywhere, meta = (Category = "Figma2UMG", DisplayName = "File URL", ToolTip = "Figma file URL. A raw file key or branch key is also supported."))
 	FString FileKey;
 
-	UPROPERTY(Config, EditAnywhere, Category = "Figma2UMG")
+	UPROPERTY(Config, EditAnywhere, meta = (Category = "Figma2UMG", DisplayName = "Library File URLs", ToolTip = "Figma library file URLs. Raw file keys or branch keys are also supported."))
 	TArray<FString> LibraryFileKeys;
 
 	UPROPERTY(EditAnywhere, meta = (Category = "Figma2UMG", ToolTip = "Local folder where the UAssets will be created. eg '/Game/MyFolder'"))

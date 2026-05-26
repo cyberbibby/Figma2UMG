@@ -103,7 +103,7 @@ protected:
 	UPROPERTY()
 	FString LinkAccess;
 
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TObjectPtr<UFigmaDocument> Document;
 
 	UPROPERTY()

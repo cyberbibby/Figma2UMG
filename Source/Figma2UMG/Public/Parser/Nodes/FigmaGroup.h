@@ -55,7 +55,7 @@ public:
 	virtual const float GetTransitionDuration() const override { return TransitionDuration; };
 	virtual const EFigmaEasingType GetTransitionEasing() const override { return TransitionEasing; };
 
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TArray<TObjectPtr<UFigmaNode>> Children;
 
 	UPROPERTY()

@@ -51,7 +51,7 @@ public:
 	UPROPERTY()
 	EFigmaStrokeAlign StrokeAlign;
 
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TArray<TObjectPtr<UFigmaNode>> Children;
 
 	UPROPERTY()

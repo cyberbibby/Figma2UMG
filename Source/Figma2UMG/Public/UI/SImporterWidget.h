@@ -25,6 +25,17 @@ public:
 
 private:
 	void AddPropertyView(TSharedRef<SGridPanel> Content);
+	void CacheDefaultInputValues();
+	void LoadSavedInputOverrides();
+	void SaveInputOverrides();
+	bool HasValidProperties() const;
+	bool LoadPropertyOverride(const FName& PropertyName, bool& bLoadedDeprecatedOverride);
+	bool SavePropertyOverride(const FName& PropertyName);
+	bool ExportPropertyValue(const FName& PropertyName, FString& OutValue) const;
+	bool ImportPropertyValue(const FName& PropertyName, const FString& Value) const;
+	void HandleFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
+	bool IsSavedInputProperty(const FPropertyChangedEvent& PropertyChangedEvent, const FProperty* PropertyThatChanged) const;
+	const TArray<FName>& GetSavedInputPropertyNames() const;
 
 	FReply DoImport();
 	void OnRequestFinished(eRequestStatus Status, FString InMessage);
@@ -37,6 +48,9 @@ private:
 	TSharedPtr<SButton> ImportButton;
 	FText ImportButtonName;
 	FText ImportButtonTooltip;
+
+	TMap<FName, FString> DefaultInputValues;
+	TMap<FName, FString> SavedInputOverrides;
 
 	int RowCount = 0;
 };

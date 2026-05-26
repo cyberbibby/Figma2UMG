@@ -25,9 +25,9 @@ public:
 	static FFigmaInteraction Invalid;
 	bool IsValid() const;
 
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TObjectPtr<UFigmaTrigger> Trigger = nullptr;
 
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TArray<TObjectPtr<UFigmaAction>> Actions;
 };

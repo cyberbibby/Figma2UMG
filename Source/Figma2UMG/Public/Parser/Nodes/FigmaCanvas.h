@@ -42,7 +42,7 @@ public:
 	virtual const EFigmaEasingType GetTransitionEasing() const override;
 protected:
 
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TArray<TObjectPtr<UFigmaNode>> Children;
 
 	UPROPERTY()

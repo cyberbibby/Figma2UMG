@@ -40,6 +40,6 @@ protected:
 
 	TObjectPtr<UFigmaFile> FigmaFile = nullptr;
 
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TArray<TObjectPtr<UFigmaNode>> Children;
 };

@@ -51,7 +51,7 @@ public:
 
 	const FFigmaComponentPropertyDefinition* IsInstanceSwap() const;
 
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TArray<TObjectPtr<UFigmaNode>> Children;
 
 	UPROPERTY()
