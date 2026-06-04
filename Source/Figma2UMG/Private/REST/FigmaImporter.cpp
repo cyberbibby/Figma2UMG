@@ -42,14 +42,31 @@ UFigmaImporter::UFigmaImporter(const FObjectInitializer& ObjectInitializer)
 void UFigmaImporter::Init(const TObjectPtr<URequestParams> InProperties, const FOnFigmaImportUpdateStatusCB& InRequesterCallback)
 {
 	AccessToken = InProperties->AccessToken;
-	FileKey = URequestParams::ExtractFileKeyFromInput(InProperties->FileKey);
-	if(!InProperties->Ids.IsEmpty())
-	{
+	FileKey = URequestParams::ExtractFileKeyFromInput(InProperties->LayerURL);
+	PrimaryImportNodeId = URequestParams::ExtractNodeIdFromInput(InProperties->LayerURL);
 
-		Ids = InProperties->Ids[0];
-		for (int i = 1; i < InProperties->Ids.Num(); i++)
+	AdditionalImportNodeIds.Reset();
+	for (const FString& Id : InProperties->Ids)
+	{
+		const FString TrimmedId = Id.TrimStartAndEnd();
+		if (!TrimmedId.IsEmpty() && !TrimmedId.Equals(PrimaryImportNodeId, ESearchCase::CaseSensitive))
 		{
-			Ids += "," + InProperties->Ids[i];
+			AdditionalImportNodeIds.AddUnique(TrimmedId);
+		}
+	}
+
+	TArray<FString> RequestIds = AdditionalImportNodeIds;
+	if (!PrimaryImportNodeId.IsEmpty() && !RequestIds.Contains(PrimaryImportNodeId))
+	{
+		RequestIds.Insert(PrimaryImportNodeId, 0);
+	}
+
+	if(!RequestIds.IsEmpty())
+	{
+		Ids = RequestIds[0];
+		for (int i = 1; i < RequestIds.Num(); i++)
+		{
+			Ids += "," + RequestIds[i];
 		}
 	}
 
@@ -378,7 +395,7 @@ void UFigmaImporter::OnFigmaFileRequestReceived(FHttpRequestPtr HttpRequest, FHt
 				{
 					UE_LOG_Figma2UMG(Display, TEXT("Post-Serialize"));
 					MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PostSerializeFile", "PostSerialize Design File."));
-					File->PostSerialize(FileKey, ContentRootFolder, JsonObj.ToSharedRef());
+					File->PostSerialize(FileKey, ContentRootFolder, JsonObj.ToSharedRef(), PrimaryImportNodeId, AdditionalImportNodeIds);
 					File->SetImporter(this);
 
 					FixReferences();
@@ -886,7 +903,22 @@ void UFigmaImporter::PatchPreInsertWidget()
 			{
 				if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder = Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
 				{
-					BlueprintBuilder->PatchAndInsertWidgets();
+					if (BlueprintBuilder->IsListEntryWidgetBlueprintBuilder())
+					{
+						BlueprintBuilder->PatchAndInsertWidgets();
+						BlueprintBuilder->CompileBP(EBlueprintCompileOptions::None);
+					}
+				}
+			}
+
+			for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
+			{
+				if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder = Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
+				{
+					if (!BlueprintBuilder->IsListEntryWidgetBlueprintBuilder())
+					{
+						BlueprintBuilder->PatchAndInsertWidgets();
+					}
 				}
 			}
 

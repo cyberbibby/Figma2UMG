@@ -50,6 +50,7 @@ public:
 	virtual const EFigmaEasingType GetTransitionEasing() const override { return TransitionEasing; };
 
 	const FFigmaComponentPropertyDefinition* IsInstanceSwap() const;
+	UTexture2DBuilder* GetTexture2DBuilder() const { return Texture2DBuilder; }
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UFigmaNode>> Children;

@@ -102,6 +102,18 @@ void UButtonWidgetBuilder::SetFocusedNode(const UFigmaGroup* InNode)
 	FocusedNode = const_cast<UFigmaGroup*>(InNode);
 }
 
+void UButtonWidgetBuilder::SetVisualTexture2DBuilder(const TObjectPtr<UTexture2DBuilder>& InTexture2DBuilder)
+{
+	VisualTexture2DBuilder = InTexture2DBuilder;
+	VisualTexture = nullptr;
+}
+
+void UButtonWidgetBuilder::SetVisualTexture(const TObjectPtr<UTexture2D>& InTexture)
+{
+	VisualTexture = InTexture;
+	VisualTexture2DBuilder = nullptr;
+}
+
 void UButtonWidgetBuilder::SetWidget(const TObjectPtr<UWidget>& InWidget)
 {
 	Widget = Cast<UButton>(InWidget);
@@ -158,6 +170,17 @@ void UButtonWidgetBuilder::Setup(TObjectPtr<UWidgetBlueprint> WidgetBlueprint) c
 	if (FocusedNode)
 	{
 		//TODO
+	}
+
+	FSlateBrush VisualBrush;
+	if (Figma2UMGBrush::MakeTextureBrush(Node, VisualTexture2DBuilder.Get(), VisualTexture.Get(), VisualBrush))
+	{
+		Style.SetNormal(VisualBrush);
+		Style.SetHovered(VisualBrush);
+		Style.SetPressed(VisualBrush);
+		Style.SetDisabled(VisualBrush);
+		Style.SetNormalPadding(FMargin(0.0f));
+		Style.SetPressedPadding(FMargin(0.0f));
 	}
 
 	Widget->SetStyle(Style);

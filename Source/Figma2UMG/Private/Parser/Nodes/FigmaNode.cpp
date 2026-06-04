@@ -4,6 +4,7 @@
 
 #include "Parser/Nodes/FigmaNode.h"
 
+#include "FigmaImportSubsystem.h"
 #include "Figma2UMGModule.h"
 #include "Parser/FigmaJsonImport.h"
 #include "Parser/Nodes/FigmaCanvas.h"
@@ -37,6 +38,13 @@
 #include "Parser/Nodes/Vectors/FigmaWashiTape.h"
 #include "UObject/NameTypes.h"
 
+namespace
+{
+	constexpr TCHAR ImageWidgetPrefix[] = TEXT("IMG_");
+	constexpr TCHAR TextureOnlyImagePrefix[] = TEXT("Image_");
+	constexpr TCHAR ProjectTextureReferencePrefix[] = TEXT("T_");
+}
+
 FString UFigmaNode::GetIdForName() const
 {
 	FString IdForName = Id.Replace(TEXT(":"), TEXT("-"), ESearchCase::CaseSensitive);
@@ -64,19 +72,11 @@ FString UFigmaNode::GetUniqueName(bool RemoveInstanceId) const
 
 FString UFigmaNode::GetWidgetName(bool RemoveInstanceId) const
 {
-	const FFigmaUMGSemanticName SemanticName = GetUMGSemanticName();
-	FString BaseName;
-	if (SemanticName.HasExplicitRole())
+	FString BaseName = Name;
+	const UFigmaImportSubsystem* Importer = GEditor ? GEditor->GetEditorSubsystem<UFigmaImportSubsystem>() : nullptr;
+	if (!Importer || !Importer->ShouldDebugNodeName())
 	{
-		BaseName = LexToString(SemanticName.Role);
-		if (!SemanticName.SemanticName.IsEmpty())
-		{
-			BaseName += TEXT("_") + SemanticName.SemanticName;
-		}
-	}
-	else
-	{
-		BaseName = Name;
+		return SanitizeObjectName(BaseName);
 	}
 
 	FString IdForName = GetIdForName();
@@ -94,7 +94,40 @@ FString UFigmaNode::GetWidgetName(bool RemoveInstanceId) const
 
 FString UFigmaNode::GetUAssetName() const
 {
-	return GetUniqueName();
+	const UFigmaImportSubsystem* Importer = GEditor ? GEditor->GetEditorSubsystem<UFigmaImportSubsystem>() : nullptr;
+	return Importer && Importer->ShouldDebugNodeName() ? GetUniqueName() : Name;
+}
+
+bool UFigmaNode::HasImageWidgetPrefix() const
+{
+	return GetNodeName().StartsWith(ImageWidgetPrefix, ESearchCase::IgnoreCase);
+}
+
+bool UFigmaNode::HasTextureOnlyImagePrefix() const
+{
+	return GetNodeName().StartsWith(TextureOnlyImagePrefix, ESearchCase::IgnoreCase);
+}
+
+FString UFigmaNode::GetTextureOnlyImageAssetName() const
+{
+	if (!HasTextureOnlyImagePrefix())
+	{
+		return GetUAssetName();
+	}
+
+	FString TextureName = GetNodeName().RightChop(FCString::Strlen(TextureOnlyImagePrefix)).TrimStartAndEnd();
+	return TextureName.IsEmpty() ? GetUAssetName() : TextureName;
+}
+
+bool UFigmaNode::HasProjectTextureReferencePrefix() const
+{
+	return GetNodeName().StartsWith(ProjectTextureReferencePrefix, ESearchCase::IgnoreCase);
+}
+
+bool UFigmaNode::HasWidgetBlueprintPrefix() const
+{
+	static const FString WidgetBlueprintPrefix(TEXT("WBP_"));
+	return GetNodeName().StartsWith(WidgetBlueprintPrefix, ESearchCase::IgnoreCase);
 }
 
 FFigmaUMGSemanticName UFigmaNode::GetUMGSemanticName() const
@@ -217,7 +250,8 @@ TObjectPtr<UWidget> UFigmaNode::FindWidgetForNode(const TObjectPtr<UPanelWidget>
 		if (Widget == nullptr)
 			continue;
 
-		if (Widget->GetName().Contains(GetIdForName(), ESearchCase::IgnoreCase))
+		if (Widget->GetName().Contains(GetWidgetName(), ESearchCase::IgnoreCase)
+			|| Widget->GetName().Contains(GetIdForName(), ESearchCase::IgnoreCase))
 		{
 			return Widget;
 		}

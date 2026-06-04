@@ -59,6 +59,11 @@ FVector2D UFigmaVectorNode::GetAbsoluteCenter() const
 
 bool UFigmaVectorNode::CreateAssetBuilder(const FString& InFileKey, TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders)
 {
+	if (HasProjectTextureReferencePrefix())
+	{
+		return false;
+	}
+
 	AssetBuilder = NewObject<UTexture2DBuilder>();
 	AssetBuilder->SetNode(InFileKey, this);
 	AssetBuilders.Add(AssetBuilder);
@@ -90,6 +95,11 @@ FString UFigmaVectorNode::GetPackageNameForBuilder(const TScriptInterface<IAsset
 
 TScriptInterface<IWidgetBuilder> UFigmaVectorNode::CreateWidgetBuilders(bool IsRoot/*= false*/, bool AllowFrameButton/*= true*/) const
 {
+	if (HasTextureOnlyImagePrefix())
+	{
+		return nullptr;
+	}
+
 	const FFigmaUMGSemanticName SemanticName = GetUMGSemanticName();
 	if (SemanticName.Role == EFigmaUMGWidgetRole::Ignore)
 	{
@@ -98,13 +108,13 @@ TScriptInterface<IWidgetBuilder> UFigmaVectorNode::CreateWidgetBuilders(bool IsR
 
 	if (SemanticName.Role == EFigmaUMGWidgetRole::Text || SemanticName.Role == EFigmaUMGWidgetRole::RichText)
 	{
-		UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaVectorNode::CreateWidgetBuilders] VECTOR node %s explicitly requests UMG/%s. Falling back to image import."), *GetNodeName(), LexToString(SemanticName.Role));
+		UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaVectorNode::CreateWidgetBuilders] VECTOR node %s uses the %s widget prefix. Falling back to image import."), *GetNodeName(), LexToString(SemanticName.Role));
 	}
 	else if (SemanticName.Role != EFigmaUMGWidgetRole::Auto
 		&& SemanticName.Role != EFigmaUMGWidgetRole::Image
 		&& SemanticName.Role != EFigmaUMGWidgetRole::Decor)
 	{
-		UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaVectorNode::CreateWidgetBuilders] VECTOR node %s explicitly requests UMG/%s. Falling back to image import."), *GetNodeName(), LexToString(SemanticName.Role));
+		UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaVectorNode::CreateWidgetBuilders] VECTOR node %s uses the %s widget prefix. Falling back to image import."), *GetNodeName(), LexToString(SemanticName.Role));
 	}
 
 	UImageWidgetBuilder* ImageWidgetBuilder = NewObject<UImageWidgetBuilder>();

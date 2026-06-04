@@ -27,7 +27,7 @@ void UTexture2DBuilder::LoadOrCreateAssets()
 	if (TextureAsset == nullptr)
 	{
 		const FString PackagePath = UPackageTools::SanitizePackageName(Node->GetPackageNameForBuilder(this));
-		const FString AssetName = ObjectTools::SanitizeInvalidChars(Node->GetUAssetName(), INVALID_OBJECTNAME_CHARACTERS);
+		const FString AssetName = ObjectTools::SanitizeInvalidChars(GetTextureAssetName(), INVALID_OBJECTNAME_CHARACTERS);
 		const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
 
 		UClass* AssetClass = UTexture2D::StaticClass();
@@ -75,6 +75,7 @@ void UTexture2DBuilder::LoadOrCreateAssets()
 
 	if (TextureAsset)
 	{
+		ApplyTextureSettings(TextureAsset);
 		TextureAsset->SetFlags(RF_Transactional);
 		TextureAsset->Modify();
 		TextureAsset->MarkPackageDirty();
@@ -85,7 +86,7 @@ void UTexture2DBuilder::LoadOrCreateAssets()
 void UTexture2DBuilder::LoadAssets()
 {
 	const FString PackagePath = UPackageTools::SanitizePackageName(Node->GetPackageNameForBuilder(this));
-	const FString AssetName = ObjectTools::SanitizeInvalidChars(Node->GetUAssetName(), INVALID_OBJECTNAME_CHARACTERS);
+	const FString AssetName = ObjectTools::SanitizeInvalidChars(GetTextureAssetName(), INVALID_OBJECTNAME_CHARACTERS);
 	const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
 
 	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
@@ -158,4 +159,32 @@ const TObjectPtr<UTexture2D>& UTexture2DBuilder::GetAsset() const
 UPackage* UTexture2DBuilder::GetAssetPackage() const
 {
 	return Asset ? Asset->GetPackage() : nullptr;
+}
+
+FString UTexture2DBuilder::GetTextureAssetName() const
+{
+	if (!Node)
+	{
+		return FString();
+	}
+
+	if (Node->HasTextureOnlyImagePrefix())
+	{
+		return Node->GetTextureOnlyImageAssetName();
+	}
+
+	return Node->GetUAssetName();
+}
+
+bool UTexture2DBuilder::ShouldUseUITextureGroup() const
+{
+	return Node && Node->HasTextureOnlyImagePrefix();
+}
+
+void UTexture2DBuilder::ApplyTextureSettings(UTexture2D* Texture) const
+{
+	if (Texture && ShouldUseUITextureGroup())
+	{
+		Texture->LODGroup = TEXTUREGROUP_UI;
+	}
 }

@@ -18,8 +18,8 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Figma2UMG")
 	FString AccessToken;
 
-	UPROPERTY(Config, EditAnywhere, meta = (Category = "Figma2UMG", DisplayName = "File URL", ToolTip = "Figma file URL. A raw file key or branch key is also supported."))
-	FString FileKey;
+	UPROPERTY(Config, EditAnywhere, meta = (Category = "Figma2UMG", DisplayName = "Layer URL", ToolTip = "Figma layer URL. A raw file key or branch key is also supported."))
+	FString LayerURL;
 
 	UPROPERTY(Config, EditAnywhere, meta = (Category = "Figma2UMG", DisplayName = "Library File URLs", ToolTip = "Figma library file URLs. Raw file keys or branch keys are also supported."))
 	TArray<FString> LibraryFileKeys;
@@ -47,6 +47,9 @@ public:
 
 	UPROPERTY(Config, EditAnywhere, Category = "Figma2UMG")
 	FClassOverrides WidgetOverrides;
+
+	UPROPERTY(Config, EditAnywhere, meta = (Category = "Figma2UMG|Mapping", ToolTip = "Default Figma node name prefixes used to choose which UMG widget type is generated. These defaults can still be overridden in the import dialog."))
+	TArray<FWidgetPrefixMapping> WidgetPrefixMappings;
 
 	UPROPERTY(Config, EditAnywhere, Category = "Figma2UMG")
 	FFrameToButtonOverride FrameToButton;

@@ -23,9 +23,10 @@ class FIGMA2UMG_API UFigmaFile : public UObject
 public:
 	GENERATED_BODY()
 
-	void PostSerialize(const FString& InFileKey, const FString& InPackagePath, const TSharedRef<FJsonObject> JsonObj);
+	void PostSerialize(const FString& InFileKey, const FString& InPackagePath, const TSharedRef<FJsonObject> JsonObj, const FString& InPrimaryImportNodeId = FString(), const TArray<FString>& InAdditionalImportNodeIds = TArray<FString>());
 
 	FString GetFileName() const { return Name; }
+	FString GetUAssetName() const;
 	FString GetPackagePath() const { return PackagePath; }
 
 	FString FindComponentName(const FString& ComponentId);
@@ -68,6 +69,8 @@ public:
 
 	void SetImporter(UFigmaImporter* InFigmaImporter);
 	UFigmaImporter* GetImporter() const;
+	TObjectPtr<UFigmaNode> GetPrimaryImportNode() const;
+	void GetAdditionalImportNodes(TArray<TObjectPtr<UFigmaNode>>& OutNodes) const;
 
 protected:
 	void FixRemoteComponentReferences(const TMap<FString, TObjectPtr<UFigmaFile>>& LibraryFiles);
@@ -76,6 +79,8 @@ protected:
 	void AddRemoteComponent(FFigmaComponentRef& ComponentRef, const TPair<FString, TObjectPtr<UFigmaFile>>& LibraryFile, TObjectPtr<UFigmaComponent> Component, TMap<FString, FFigmaComponentRef>& PendingComponents);
 	void AddRemoteComponentSet(FFigmaComponentSetRef& ComponentSetRef, const TPair<FString, TObjectPtr<UFigmaFile>>& LibraryFile, TObjectPtr<UFigmaComponentSet> ComponentSet, TMap<FString, FFigmaComponentRef>& PendingComponents, TMap<FString, FFigmaComponentSetRef>& PendingComponentSets);
 	void ExecuteDelegate(const bool Succeeded);
+	void UpdateImportAssetNameFromPrimaryNodeId();
+	bool CreatePrimaryImportRootAssetBuilders(TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders);
 
 	bool CreateAssetBuilder(const FString& InFileKey, UFigmaNode& Node, TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders);
 
@@ -117,6 +122,9 @@ protected:
 
 	FString FileKey;
 	FString PackagePath;
+	FString PrimaryImportNodeId;
+	TArray<FString> AdditionalImportNodeIds;
+	FString ImportAssetNameOverride;
 
 	UFigmaImporter* FigmaImporter = nullptr;
 

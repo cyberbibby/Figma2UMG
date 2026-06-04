@@ -5,20 +5,70 @@
 #include "Parser/FigmaFile.h"
 
 #include "Figma2UMGModule.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Async/Async.h"
 #include "Builder/Asset/WidgetBlueprintBuilder.h"
+#include "ObjectTools.h"
 #include "Parser/FigmaJsonImport.h"
 #include "Parser/Nodes/FigmaDocument.h"
 #include "Parser/Nodes/FigmaInstance.h"
 #include "REST/FigmaImporter.h"
 #include "Parser/Properties/FigmaComponentRef.h"
 #include "Dom/JsonObject.h"
+#include "WidgetBlueprint.h"
 
-void UFigmaFile::PostSerialize(const FString& InFileKey, const FString& InPackagePath, const TSharedRef<FJsonObject> fileJsonObject)
+namespace
+{
+	bool HasExistingWidgetBlueprintForNode(const UFigmaNode& Node)
+	{
+		if (!Node.HasWidgetBlueprintPrefix())
+		{
+			return false;
+		}
+
+		const FString AssetName = ObjectTools::SanitizeInvalidChars(Node.GetNodeName().TrimStartAndEnd(), INVALID_OBJECTNAME_CHARACTERS);
+		if (AssetName.IsEmpty())
+		{
+			return false;
+		}
+
+		FARFilter Filter;
+		Filter.PackagePaths.Add(FName(TEXT("/Game")));
+		Filter.ClassPaths.Add(UWidgetBlueprint::StaticClass()->GetClassPathName());
+		Filter.bRecursivePaths = true;
+
+		TArray<FAssetData> AssetDataList;
+		const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+		AssetRegistryModule.Get().GetAssets(Filter, AssetDataList);
+		for (const FAssetData& AssetData : AssetDataList)
+		{
+			if (AssetData.AssetName.IsEqual(FName(*AssetName), ENameCase::CaseSensitive))
+			{
+				UE_LOG_Figma2UMG(Display, TEXT("[UFigmaFile] Reusing existing WidgetBlueprint %s for WBP subtree %s; child asset generation is skipped."), *AssetData.GetObjectPathString(), *Node.GetNodeName());
+				return true;
+			}
+		}
+
+		return false;
+	}
+}
+
+void UFigmaFile::PostSerialize(const FString& InFileKey, const FString& InPackagePath, const TSharedRef<FJsonObject> fileJsonObject, const FString& InPrimaryImportNodeId, const TArray<FString>& InAdditionalImportNodeIds)
 {
 	static FString DocumentStr("Document");
 	FileKey = InFileKey;
 	PackagePath = InPackagePath;
+	PrimaryImportNodeId = InPrimaryImportNodeId;
+	AdditionalImportNodeIds.Reset();
+	for (const FString& NodeId : InAdditionalImportNodeIds)
+	{
+		const FString TrimmedNodeId = NodeId.TrimStartAndEnd();
+		if (!TrimmedNodeId.IsEmpty() && !TrimmedNodeId.Equals(PrimaryImportNodeId, ESearchCase::CaseSensitive))
+		{
+			AdditionalImportNodeIds.AddUnique(TrimmedNodeId);
+		}
+	}
+	ImportAssetNameOverride.Reset();
 
 	const TSharedPtr<FJsonObject>* DocumentJsonObject = nullptr;
 	if (!fileJsonObject->TryGetObjectField(DocumentStr, DocumentJsonObject) || !DocumentJsonObject || !DocumentJsonObject->IsValid())
@@ -42,6 +92,12 @@ void UFigmaFile::PostSerialize(const FString& InFileKey, const FString& InPackag
 
 	Document->SetFigmaFile(this);
 	Document->PostSerialize(nullptr, (*DocumentJsonObject).ToSharedRef());
+	UpdateImportAssetNameFromPrimaryNodeId();
+}
+
+FString UFigmaFile::GetUAssetName() const
+{
+	return ImportAssetNameOverride.IsEmpty() ? Name : ImportAssetNameOverride;
 }
 
 FString UFigmaFile::FindComponentName(const FString& ComponentId)
@@ -258,6 +314,54 @@ UFigmaImporter* UFigmaFile::GetImporter() const
 	return FigmaImporter;
 }
 
+TObjectPtr<UFigmaNode> UFigmaFile::GetPrimaryImportNode() const
+{
+	if (PrimaryImportNodeId.IsEmpty())
+	{
+		return nullptr;
+	}
+
+	return FindByID<UFigmaNode>(PrimaryImportNodeId);
+}
+
+void UFigmaFile::GetAdditionalImportNodes(TArray<TObjectPtr<UFigmaNode>>& OutNodes) const
+{
+	for (const FString& NodeId : AdditionalImportNodeIds)
+	{
+		const TObjectPtr<UFigmaNode> Node = FindByID<UFigmaNode>(NodeId);
+		if (Node)
+		{
+			OutNodes.AddUnique(Node);
+		}
+		else
+		{
+			UE_LOG_Figma2UMG(Warning, TEXT("Could not find additional Figma node %s while resolving import roots."), *NodeId);
+		}
+	}
+}
+
+void UFigmaFile::UpdateImportAssetNameFromPrimaryNodeId()
+{
+	if (PrimaryImportNodeId.IsEmpty() || !Document)
+	{
+		return;
+	}
+
+	if (TObjectPtr<UFigmaNode> PrimaryImportNode = GetPrimaryImportNode())
+	{
+		const FString PrimaryImportNodeName = PrimaryImportNode->GetNodeName().TrimStartAndEnd();
+		if (!PrimaryImportNodeName.IsEmpty())
+		{
+			ImportAssetNameOverride = PrimaryImportNodeName;
+			UE_LOG_Figma2UMG(Display, TEXT("Using Figma node %s layer name '%s' as imported root UMG asset name."), *PrimaryImportNodeId, *ImportAssetNameOverride);
+		}
+	}
+	else
+	{
+		UE_LOG_Figma2UMG(Warning, TEXT("Could not find Figma node %s while resolving imported root UMG asset name. Falling back to file name '%s'."), *PrimaryImportNodeId, *Name);
+	}
+}
+
 void UFigmaFile::FixRemoteComponentReferences(const TMap<FString, TObjectPtr<UFigmaFile>>& LibraryFiles)
 {
 	TMap<FString, FFigmaComponentRef> PendingComponents;
@@ -374,7 +478,19 @@ void UFigmaFile::CreateAssetBuilders(const FProcessFinishedDelegate& ProcessDele
 
 			if (Document)
 			{
-				CreateAssetBuilder(FileKey, *Document, AssetBuilders);
+				if (PrimaryImportNodeId.IsEmpty())
+				{
+					CreateAssetBuilder(FileKey, *Document, AssetBuilders);
+				}
+				else
+				{
+					Document->CreateAssetBuilder(FileKey, AssetBuilders);
+					if (!CreatePrimaryImportRootAssetBuilders(AssetBuilders))
+					{
+						ExecuteDelegate(false);
+						return;
+					}
+				}
 
 				ExecuteDelegate(true);
 			}
@@ -484,9 +600,73 @@ void UFigmaFile::ExecuteDelegate(const bool Succeeded)
 	}
 }
 
+bool UFigmaFile::CreatePrimaryImportRootAssetBuilders(TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders)
+{
+	TObjectPtr<UFigmaNode> PrimaryImportNode = GetPrimaryImportNode();
+	if (!PrimaryImportNode)
+	{
+		UE_LOG_Figma2UMG(Error, TEXT("Could not find Figma node %s while resolving import root."), *PrimaryImportNodeId);
+		return false;
+	}
+
+	if (IFigmaContainer* ImportRootContainer = Cast<IFigmaContainer>(PrimaryImportNode))
+	{
+		TArray<TObjectPtr<UFigmaNode>>& RootChildren = ImportRootContainer->GetChildren();
+		if (!RootChildren.IsEmpty())
+		{
+			UE_LOG_Figma2UMG(Display, TEXT("Using Figma node %s as import start. %d direct child node(s) will be imported as UMG root content."), *PrimaryImportNodeId, RootChildren.Num());
+			for (UFigmaNode* ChildNode : RootChildren)
+			{
+				if (ChildNode)
+				{
+					CreateAssetBuilder(FileKey, *ChildNode, AssetBuilders);
+				}
+			}
+
+			TArray<TObjectPtr<UFigmaNode>> AdditionalImportNodes;
+			GetAdditionalImportNodes(AdditionalImportNodes);
+			for (UFigmaNode* AdditionalImportNode : AdditionalImportNodes)
+			{
+				if (AdditionalImportNode)
+				{
+					CreateAssetBuilder(FileKey, *AdditionalImportNode, AssetBuilders);
+				}
+			}
+
+			return true;
+		}
+	}
+
+	UE_LOG_Figma2UMG(Warning, TEXT("Figma node %s has no direct child nodes. Falling back to importing the selected node itself as root content."), *PrimaryImportNodeId);
+	CreateAssetBuilder(FileKey, *PrimaryImportNode, AssetBuilders);
+	TArray<TObjectPtr<UFigmaNode>> AdditionalImportNodes;
+	GetAdditionalImportNodes(AdditionalImportNodes);
+	for (UFigmaNode* AdditionalImportNode : AdditionalImportNodes)
+	{
+		if (AdditionalImportNode)
+		{
+			CreateAssetBuilder(FileKey, *AdditionalImportNode, AssetBuilders);
+		}
+	}
+	return true;
+}
+
 bool UFigmaFile::CreateAssetBuilder(const FString& InFileKey, UFigmaNode& Node, TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders)
 {
+	if (Node.HasProjectTextureReferencePrefix())
+	{
+		return false;
+	}
+
 	bool Created = Node.CreateAssetBuilder(InFileKey, AssetBuilders);
+	if (Node.HasTextureOnlyImagePrefix())
+	{
+		return Created;
+	}
+	if (HasExistingWidgetBlueprintForNode(Node))
+	{
+		return Created;
+	}
 
 	if (IFigmaContainer* FigmaContainer = Cast<IFigmaContainer>(&Node))
 	{

@@ -17,8 +17,9 @@ TObjectPtr<UWidget> UWidgetSwitcherBuilder::FindNodeWidgetInParent(const TObject
 		return nullptr;
 
 	FString IdForName = Node->GetWidgetName();
+	const UFigmaImportSubsystem* Importer = GEditor ? GEditor->GetEditorSubsystem<UFigmaImportSubsystem>() : nullptr;
 	const UFigmaInstance* FigmaInstance = Cast<UFigmaInstance>(Node);
-	if (FigmaInstance && FigmaInstance->IsInstanceSwap())
+	if (Importer && Importer->ShouldDebugNodeName() && FigmaInstance && FigmaInstance->IsInstanceSwap())
 	{
 
 		const FString MainComponentStr("mainComponent");
@@ -54,8 +55,9 @@ void UWidgetSwitcherBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> W
 	Widget = Cast<UWidgetSwitcher>(WidgetToPatch);
 	const FString NodeName = Node->GetNodeName();
 	FString WidgetName = Node->GetWidgetName();
+	UFigmaImportSubsystem* Importer = GEditor ? GEditor->GetEditorSubsystem<UFigmaImportSubsystem>() : nullptr;
 	const UFigmaInstance* FigmaInstance = Cast<UFigmaInstance>(Node);
-	if(FigmaInstance && FigmaInstance->IsInstanceSwap())
+	if(Importer && Importer->ShouldDebugNodeName() && FigmaInstance && FigmaInstance->IsInstanceSwap())
 	{
 
 		const FString MainComponentStr("mainComponent");
@@ -76,7 +78,6 @@ void UWidgetSwitcherBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> W
 	}
 	else
 	{
-		UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
 		UClass* ClassOverride = Importer ? Importer->GetOverrideClassForNode<UWidgetSwitcher>(NodeName) : nullptr;
 		if (ClassOverride && Widget->GetClass() != ClassOverride)
 		{

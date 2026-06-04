@@ -18,7 +18,6 @@
 #include "Parser/Nodes/Vectors/FigmaRectangleVector.h"
 #include "Parser/Nodes/Vectors/FigmaVectorNode.h"
 
-
 void UImageWidgetBuilder::SetTexture2DBuilder(const TObjectPtr<UTexture2DBuilder>& InTexture2DBuilder)
 {
 	Texture2DBuilder = InTexture2DBuilder;
@@ -46,7 +45,7 @@ void UImageWidgetBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> Widg
 	Widget = Cast<UImage>(WidgetToPatch);
 
 	const FString NodeName = Node->GetNodeName();
-	const FString WidgetName = Node->GetWidgetName();
+	const FString WidgetName = Node->HasImageWidgetPrefix() ? Node->GetUAssetName() : Node->GetWidgetName();
 	if (Widget)
 	{
 		UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
@@ -62,9 +61,9 @@ void UImageWidgetBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> Widg
 		Widget = UFigmaImportSubsystem::NewWidget<UImage>(WidgetBlueprint->WidgetTree, NodeName, WidgetName);
 	}
 
-	if (!Texture2DBuilder && !Material)
+	if (!Texture2DBuilder && !Texture && !Material)
 	{
-		UE_LOG_Figma2UMG(Warning, TEXT("[UImageWidgetBuilder::PatchAndInsertWidget] Node<%s> %s didn't set the Texture2DBuilder or UMaterial."), *Node->GetClass()->GetName(), *Node->GetNodeName());
+		UE_LOG_Figma2UMG(Warning, TEXT("[UImageWidgetBuilder::PatchAndInsertWidget] Node<%s> %s didn't set a Texture2DBuilder, UTexture2D, or UMaterial."), *Node->GetClass()->GetName(), *Node->GetNodeName());
 	}
 
 	Insert(WidgetBlueprint->WidgetTree, WidgetToPatch, Widget);
@@ -146,7 +145,7 @@ void UImageWidgetBuilder::SetupFill() const
 	{
 		Widget->SetBrushFromTexture(BrushTexture, false);
 		FSlateBrush Brush = Widget->GetBrush();
-		Brush.SetImageSize(Node->GetAbsoluteSize(IsTopWidgetForNode()));
+		Brush.SetImageSize(Figma2UMGLayout::RoundLayoutVector(Node->GetAbsoluteSize(IsTopWidgetForNode())));
 		Brush.DrawAs = GetDrawAs(Brush.DrawAs);
 		SetBrush(Widget, Brush);
 		Widget->SetColorAndOpacity(FLinearColor::White);
@@ -155,7 +154,7 @@ void UImageWidgetBuilder::SetupFill() const
 	{
 		Widget->SetBrushFromMaterial(Material);
 		FSlateBrush Brush = Widget->GetBrush();
-		Brush.SetImageSize(Node->GetAbsoluteSize(IsTopWidgetForNode()));
+		Brush.SetImageSize(Figma2UMGLayout::RoundLayoutVector(Node->GetAbsoluteSize(IsTopWidgetForNode())));
 		Brush.TintColor = FLinearColor::White;
 		Brush.DrawAs = GetDrawAs(Brush.DrawAs);
 		Brush.Margin.Top = 0.5f;
@@ -170,7 +169,7 @@ void UImageWidgetBuilder::SetupFill() const
 		FSlateBrush Brush = Widget->GetBrush();
 		Brush.TintColor = GetTintColor();
 		Brush.DrawAs = GetDrawAs(Brush.DrawAs);
-		Brush.SetImageSize(Node->GetAbsoluteSize(IsTopWidgetForNode()));
+		Brush.SetImageSize(Figma2UMGLayout::RoundLayoutVector(Node->GetAbsoluteSize(IsTopWidgetForNode())));
 		SetBrush(Widget, Brush);
 		if (HasSolidColor)
 		{

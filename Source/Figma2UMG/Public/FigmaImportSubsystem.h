@@ -31,7 +31,10 @@ public:
 	template <class Type>
 	UClass* GetOverrideClassForNode(const FString& NodeName);
 
+	const FWidgetPrefixMapping* FindWidgetPrefixMappingForNode(const FString& NodeName) const;
+
 	bool ShouldGenerateButton(const FString& NodeName) const;
+	bool ShouldDebugNodeName() const { return bDebugNodeName; }
 
 	void RefreshFontAssets();
 
@@ -43,6 +46,7 @@ public:
 	FGFontFamilyInfo* FindGoogleFontsInfo(const FString& FamilyName);
 
 	static void TryRenameWidget(const FString& InName, TObjectPtr<UWidget> Widget);
+	static FName MakeWidgetObjectName(UObject* Outer, UClass* WidgetClass, const FString& WidgetName, const UObject* ExistingObject = nullptr);
 
 	template<class Type>
 	static Type* NewWidget(TObjectPtr<UWidgetTree> TreeViewOuter, const FString& NodeName, const FString& WidgetName);
@@ -78,6 +82,8 @@ private:
 
 	FFrameToButtonOverride* FrameToButtonOverride = nullptr;
 	FClassOverrides* WidgetOverrides = nullptr;
+	TArray<FWidgetPrefixMapping>* WidgetPrefixMappings = nullptr;
+	bool bDebugNodeName = false;
 };
 
 #define FIND_OVERRIDE_FOR_TYPE(TypeName)																		\
@@ -114,16 +120,16 @@ UClass* UFigmaImportSubsystem::GetOverrideClassForNode(const FString& NodeName)
 template <class Type>
 Type* UFigmaImportSubsystem::NewWidget(TObjectPtr<UWidgetTree> TreeViewOuter, const FString& NodeName, const FString& WidgetName)
 {
-	const FString UniqueName = MakeUniqueObjectName(TreeViewOuter, Type::StaticClass(), *WidgetName).ToString();
+	const FName ObjectName = MakeWidgetObjectName(TreeViewOuter, Type::StaticClass(), WidgetName);
 	UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
 	UClass* ClassOverride = Importer ? Importer->GetOverrideClassForNode<Type>(NodeName) : nullptr;
 	if (ClassOverride)
 	{
-		return NewObject<Type>(TreeViewOuter, ClassOverride, *UniqueName);
+		return NewObject<Type>(TreeViewOuter, ClassOverride, ObjectName);
 	}
 	else
 	{
-		return NewObject<Type>(TreeViewOuter, *UniqueName);
+		return NewObject<Type>(TreeViewOuter, ObjectName);
 	}
 }
 
@@ -135,6 +141,6 @@ Type* UFigmaImportSubsystem::NewWidget(TObjectPtr<UWidgetTree> TreeViewOuter, co
 		return NewWidget<Type>(TreeViewOuter, NodeName, WidgetName);
 	}
 
-	const FString UniqueName = MakeUniqueObjectName(TreeViewOuter, ClassOverride, *WidgetName).ToString();
-	return NewObject<Type>(TreeViewOuter, ClassOverride, *UniqueName);
+	const FName ObjectName = MakeWidgetObjectName(TreeViewOuter, ClassOverride, WidgetName);
+	return NewObject<Type>(TreeViewOuter, ClassOverride, ObjectName);
 }

@@ -23,6 +23,11 @@ FVector2D UFigmaEllipse::GetAbsoluteCenter() const
 
 bool UFigmaEllipse::CreateAssetBuilder(const FString& InFileKey, TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders)
 {
+	if (HasTextureOnlyImagePrefix())
+	{
+		return Super::CreateAssetBuilder(InFileKey, AssetBuilders);
+	}
+
 	if(AbsoluteBoundingBox.Height != AbsoluteBoundingBox.Width)
 	{
 		return Super::CreateAssetBuilder(InFileKey, AssetBuilders);

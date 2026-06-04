@@ -135,6 +135,8 @@ void UMultiChildBuilder::PatchAndInsertChildren(TObjectPtr<UWidgetBlueprint> Wid
 		return;
 	}
 
+	SortChildrenForLayout();
+
 	TArray<UWidget*> AllChildren = ParentWidget->GetAllChildren();
 	TArray<UWidget*> NewChildren;
 	for (const TScriptInterface<IWidgetBuilder>& ChildBuilder : ChildWidgetBuilders)
@@ -160,10 +162,31 @@ void UMultiChildBuilder::PatchAndInsertChildren(TObjectPtr<UWidgetBlueprint> Wid
 		if (NewChildren.Contains(AllChildren[i]))
 			continue;
 	
+		ParentWidget->RemoveChild(AllChildren[i]);
 		AllChildren.RemoveAt(i);
+		i--;
+	}
+
+	for (int32 DesiredIndex = 0; DesiredIndex < NewChildren.Num(); ++DesiredIndex)
+	{
+		UWidget* DesiredChild = NewChildren[DesiredIndex];
+		if (!DesiredChild)
+		{
+			continue;
+		}
+
+		const int32 CurrentIndex = ParentWidget->GetChildIndex(DesiredChild);
+		if (CurrentIndex != INDEX_NONE && CurrentIndex != DesiredIndex)
+		{
+			ParentWidget->ShiftChild(DesiredIndex, DesiredChild);
+		}
 	}
 
 	FixSpacers(ParentWidget);
+}
+
+void UMultiChildBuilder::SortChildrenForLayout()
+{
 }
 
 void UMultiChildBuilder::SetChildrenWidget(TObjectPtr<UPanelWidget> ParentWidget)
@@ -212,7 +235,7 @@ void UMultiChildBuilder::FixSpacers(const TObjectPtr<UPanelWidget>& PanelWidget)
 		}
 		if (UWrapBox* WrapBox = Cast<UWrapBox>(PanelWidget))
 		{
-			WrapBox->SetInnerSlotPadding(FVector2D(ItemSpacing, CounterAxisSpacing));
+			WrapBox->SetInnerSlotPadding(Figma2UMGLayout::RoundLayoutVector(FVector2D(ItemSpacing, CounterAxisSpacing)));
 		}
 	}
 	else
@@ -230,13 +253,13 @@ void UMultiChildBuilder::FixSpacers(const TObjectPtr<UPanelWidget>& PanelWidget)
 			else if (ShouldBeSpacer && !IsSpacer)
 			{
 				USpacer* Spacer = NewObject<USpacer>(PanelWidget->GetOuter());
-				Spacer->SetSize(FVector2D(ItemSpacing, ItemSpacing));
+				Spacer->SetSize(Figma2UMGLayout::RoundLayoutVector(FVector2D(ItemSpacing, ItemSpacing)));
 				PanelWidget->InsertChildAt(i, Spacer);
 			}
 			else if (ShouldBeSpacer && IsSpacer)
 			{
 				USpacer* Spacer = Cast<USpacer>(Widget);
-				Spacer->SetSize(FVector2D(ItemSpacing, ItemSpacing));
+				Spacer->SetSize(Figma2UMGLayout::RoundLayoutVector(FVector2D(ItemSpacing, ItemSpacing)));
 			}
 		}
 	}

@@ -50,6 +50,7 @@ public:
 	virtual bool DoesSupportImageRef() const;
 
 	bool HasAssetBuilder() const { return AssetBuilder != nullptr; }
+	UTexture2DBuilder* GetTexture2DBuilder() const { return AssetBuilder; }
 
 	bool ShouldIgnoreRotation() const;
 

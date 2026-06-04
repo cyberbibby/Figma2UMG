@@ -9,6 +9,8 @@
 #include "ButtonWidgetBuilder.generated.h"
 
 class UButton;
+class UTexture2DBuilder;
+class UTexture2D;
 
 UCLASS()
 class FIGMA2UMG_API UButtonWidgetBuilder : public USingleChildBuilder
@@ -24,6 +26,8 @@ public:
 	void SetPressedNode(const UFigmaGroup* InNode);
 	void SetDisabledNode(const UFigmaGroup* InNode);
 	void SetFocusedNode(const UFigmaGroup* InNode);
+	void SetVisualTexture2DBuilder(const TObjectPtr<UTexture2DBuilder>& InTexture2DBuilder);
+	void SetVisualTexture(const TObjectPtr<UTexture2D>& InTexture);
 
 	virtual void SetWidget(const TObjectPtr<UWidget>& InWidget) override;
 	virtual void ResetWidget() override;
@@ -58,4 +62,10 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UFigmaGroup> FocusedNode = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<UTexture2DBuilder> VisualTexture2DBuilder = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<UTexture2D> VisualTexture = nullptr;
 };

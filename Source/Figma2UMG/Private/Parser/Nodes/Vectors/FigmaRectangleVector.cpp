@@ -23,6 +23,11 @@ FVector2D UFigmaRectangleVector::GetAbsoluteCenter() const
 
 bool UFigmaRectangleVector::CreateAssetBuilder(const FString& InFileKey, TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders)
 {
+	if (HasTextureOnlyImagePrefix())
+	{
+		return Super::CreateAssetBuilder(InFileKey, AssetBuilders);
+	}
+
 	bool HasImage = false;
 	for (FFigmaPaint& Paint : Fills)
 	{

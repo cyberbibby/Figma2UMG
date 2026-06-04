@@ -54,6 +54,14 @@ void UFigmaInstance::PostSerialize(const TObjectPtr<UFigmaNode> InParent, const 
 
 bool UFigmaInstance::CreateAssetBuilder(const FString& InFileKey, TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders)
 {
+	if (HasTextureOnlyImagePrefix())
+	{
+		Texture2DBuilder = NewObject<UTexture2DBuilder>();
+		Texture2DBuilder->SetNode(InFileKey, this);
+		AssetBuilders.Add(Texture2DBuilder);
+		return true;
+	}
+
 	const TObjectPtr<UFigmaFile> FigmaFile = GetFigmaFile();
 	if(!FigmaFile)
 	{
@@ -84,11 +92,21 @@ FString UFigmaInstance::GetPackageNameForBuilder(const TScriptInterface<IAssetBu
 		TopParentNode = TopParentNode->GetParentNode();
 	}
 
+	if (HasTextureOnlyImagePrefix() && Cast<UTexture2DBuilder>(InAssetBuilder.GetObject()))
+	{
+		return TopParentNode->GetCurrentPackagePath() + TEXT("/Textures");
+	}
+
 	return TopParentNode->GetCurrentPackagePath() + TEXT("/InstanceTextures");
 }
 
 TScriptInterface<IWidgetBuilder> UFigmaInstance::CreateWidgetBuilders(bool IsRoot /*= false*/, bool AllowFrameButton/*= true*/) const
 {
+	if (HasTextureOnlyImagePrefix())
+	{
+		return nullptr;
+	}
+
 	if (IsMissingComponent)
 	{
 		UImageWidgetBuilder* ImageWidgetBuilder = NewObject<UImageWidgetBuilder>();

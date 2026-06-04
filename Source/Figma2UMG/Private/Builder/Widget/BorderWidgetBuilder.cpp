@@ -34,11 +34,11 @@ void UBorderWidgetBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> Wid
 				return;
 
 			const FString CurrentName = InWidget->GetName();
-			if (CurrentName.Equals(InName, ESearchCase::IgnoreCase) || CurrentName.StartsWith(InName + TEXT("_"), ESearchCase::IgnoreCase))
+			if (CurrentName.Equals(InName, ESearchCase::CaseSensitive))
 				return;
 
-			const FString UniqueName = MakeUniqueObjectName(InWidget->GetOuter(), InWidget->GetClass(), *InName).ToString();
-			InWidget->Rename(*UniqueName);
+			const FName ObjectName = UFigmaImportSubsystem::MakeWidgetObjectName(InWidget->GetOuter(), InWidget->GetClass(), InName, InWidget);
+			InWidget->Rename(*ObjectName.ToString());
 		};
 
 	if (Widget)

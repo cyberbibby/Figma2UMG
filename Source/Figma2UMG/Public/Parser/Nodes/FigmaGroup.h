@@ -25,12 +25,16 @@
 
 class UButtonWidgetBuilder;
 class UPanelWidgetBuilder;
+class UTexture2DBuilder;
+class UWidgetBlueprintBuilder;
 
 UCLASS()
 class FIGMA2UMG_API UFigmaGroup : public UFigmaNode, public IFigmaContainer, public IFlowTransition
 {
 public:
 	GENERATED_BODY()
+
+	void SetGenerateFile(bool Value = true);
 
 	// UFigmaNode
 	virtual void PostSerialize(const TObjectPtr<UFigmaNode> InParent, const TSharedRef<FJsonObject> JsonObj) override;
@@ -55,8 +59,16 @@ public:
 	virtual const float GetTransitionDuration() const override { return TransitionDuration; };
 	virtual const EFigmaEasingType GetTransitionEasing() const override { return TransitionEasing; };
 
+	const TObjectPtr<UWidgetBlueprintBuilder>& GetAssetBuilder() const;
+
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UFigmaNode>> Children;
+
+	UPROPERTY()
+	TObjectPtr<UTexture2DBuilder> Texture2DBuilder = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<UWidgetBlueprintBuilder> ListEntryWidgetBlueprintBuilder = nullptr;
 
 	UPROPERTY()
 	bool Locked = false;
@@ -221,10 +233,19 @@ public:
 	TMap<EFigmaStyleType, FString> Styles;
 
 protected:
+	UPROPERTY()
+	TObjectPtr<UWidgetBlueprintBuilder> WidgetBlueprintBuilder = nullptr;
+
+	UPROPERTY()
+	bool GenerateFile = false;
+
 	bool IsButton() const;
 	TScriptInterface<UButtonWidgetBuilder> CreateButtonBuilder() const;
 	TScriptInterface<IWidgetBuilder> CreateBorderBuilder() const;
-	TScriptInterface<IWidgetBuilder> CreateContainersBuilder(EFigmaUMGWidgetRole ForcedRole = EFigmaUMGWidgetRole::Auto, bool bForceBorder = false, bool bSuppressVisualWrappers = false, const FString& PanelNameOverride = FString()) const;
+	TScriptInterface<IWidgetBuilder> CreateBuilderForWidgetType(EFigmaUMGWidgetType WidgetType, bool AllowFrameButton = true) const;
+	TScriptInterface<IWidgetBuilder> CreateContentBuilderForChildren(const FString& PanelNameOverride = FString(), bool bSkipTextureSourceChildren = false) const;
+	TScriptInterface<IWidgetBuilder> CreateContainersBuilder(EFigmaUMGWidgetRole ForcedRole = EFigmaUMGWidgetRole::Auto, bool bForceBorder = false, bool bSuppressVisualWrappers = false, const FString& PanelNameOverride = FString(), bool bSkipTextureSourceChildren = false) const;
+	UPanelWidgetBuilder* CreatePanelBuilderForWidgetType(EFigmaUMGWidgetType WidgetType) const;
 	UPanelWidgetBuilder* CreatePanelBuilderForRole(EFigmaUMGWidgetRole Role) const;
 	UPanelWidgetBuilder* CreatePanelBuilderForLayout() const;
 

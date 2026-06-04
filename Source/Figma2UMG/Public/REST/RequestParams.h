@@ -16,15 +16,16 @@ class FIGMA2UMG_API URequestParams : public  UObject
 public:
 	URequestParams(const FObjectInitializer& ObjectInitializer);
 
-	static FString ExtractFileKeyFromInput(const FString& InFileURL);
+	static FString ExtractFileKeyFromInput(const FString& InLayerURL);
+	static FString ExtractNodeIdFromInput(const FString& InLayerURL);
 
 	UPROPERTY(EditAnywhere, meta = (Category = "Figma", ToolTip = "A personal access token gives the holder access to an account through the API as if they were the user who generated the token. See https://www.figma.com/developers/api#authentication"))
 	FString AccessToken;
 
-	UPROPERTY(EditAnywhere, meta = (Category = "Figma", DisplayName = "File URL", ToolTip = "Figma file URL to export JSON from. A raw file key or branch key is also supported."))
-	FString FileKey;
+	UPROPERTY(EditAnywhere, meta = (Category = "Figma", DisplayName = "Layer URL", ToolTip = "Figma layer URL to import from. A raw file key or branch key is also supported. If the URL includes node-id, import starts from that layer and its direct children become the root UMG widget(s)."))
+	FString LayerURL;
 
-	UPROPERTY(EditAnywhere, meta = (Category = "Figma", DisplayName = "Node Ids", ToolTip = "List of Figma node-id values that you care about in the document. If specified, only a subset of the document will be returned corresponding to the nodes listed, their children, and everything between the root node and the listed nodes. Format is separated by ':' eg. XXX:YYY"))
+	UPROPERTY(EditAnywhere, meta = (Category = "Figma", DisplayName = "Extra Node Ids", ToolTip = "List of Figma node-id values that you care about in the document. If specified, only a subset of the document will be returned corresponding to the nodes listed, their children, and everything between the root node and the listed nodes. Format is separated by ':' eg. XXX:YYY"))
 	TArray<FString> Ids;
 
 	UPROPERTY(EditAnywhere, meta = (Category = "Figma", DisplayName = "Library File URLs", ToolTip = "List of Figma library file URLs to get Components from. Raw file keys or branch keys are also supported."))
@@ -48,8 +49,14 @@ public:
 	UPROPERTY(EditAnywhere, meta = (Category = "Figma|Options", ToolTip = "Should Imported progress on Failed Image download?."))
 	bool ProgressOnFailToDownloadImage = false;
 
+	UPROPERTY(EditAnywhere, meta = (Category = "Figma|Options", DisplayName = "Debug Node Name", ToolTip = "Append the source Figma node id to generated widget names."))
+	bool DebugNodeName = false;
+
 	UPROPERTY(EditAnywhere, meta = (Category = "Figma|Options", ToolTip = "Rules to make Frames generate UButtons."))
 	FFrameToButtonOverride FrameToButton;
+
+	UPROPERTY(EditAnywhere, meta = (Category = "Figma|Mapping", ToolTip = "Figma node name prefixes used to choose which UMG widget type is generated for matching nodes."))
+	TArray<FWidgetPrefixMapping> WidgetPrefixMappings;
 
 	UPROPERTY(EditAnywhere, meta = (Category = "Unreal", ToolTip = "Local folder where the UAssets will be created. eg '/Game/MyFolder'"))
 	FString ContentRootFolder;

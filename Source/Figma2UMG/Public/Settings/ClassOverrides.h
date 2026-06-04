@@ -20,11 +20,76 @@
 #include "ClassOverrides.generated.h"
 
 UENUM()
+enum class EFigmaUMGWidgetType : uint8
+{
+	None,
+	CanvasPanel,
+	VerticalBox,
+	HorizontalBox,
+	Overlay,
+	WrapBox,
+	UniformGridPanel,
+	GridPanel,
+	WidgetSwitcher,
+	Border,
+	SizeBox,
+	ScaleBox,
+	SafeZone,
+	MenuAnchor,
+	NamedSlot,
+	BackgroundBlur,
+	InvalidationBox,
+	RetainerBox,
+	WindowTitleBarArea,
+	ScrollBox,
+	ScrollBar,
+	TextBlock,
+	RichTextBlock,
+	EditableText,
+	EditableTextBox,
+	MultiLineEditableText,
+	MultiLineEditableTextBox,
+	Image,
+	Button,
+	CheckBox,
+	ComboBoxString,
+	ProgressBar,
+	Slider,
+	SpinBox,
+	InputKeySelector,
+	Throbber,
+	CircularThrobber,
+	Spacer,
+	ListView,
+	TileView,
+};
+
+UENUM()
 enum class EOverrideConditionCheck
 {
 	StartsWith,
 	Contains,
 	WildCard,
+};
+
+USTRUCT()
+struct FIGMA2UMG_API FWidgetPrefixMapping
+{
+	GENERATED_BODY()
+public:
+	FWidgetPrefixMapping() = default;
+	FWidgetPrefixMapping(EFigmaUMGWidgetType InWidgetType, const FString& InPrefix);
+
+	bool Match(const FString& NodeName) const;
+
+	UPROPERTY(EditAnywhere, Category = "Figma2UMG")
+	bool bEnabled = true;
+
+	UPROPERTY(EditAnywhere, Category = "Figma2UMG")
+	EFigmaUMGWidgetType WidgetType = EFigmaUMGWidgetType::None;
+
+	UPROPERTY(EditAnywhere, Category = "Figma2UMG")
+	FString Prefix;
 };
 
 USTRUCT()
@@ -205,3 +270,10 @@ public:
 	TArray<FWrapBoxOverride> WrapBoxRules;
 
 };
+
+FIGMA2UMG_API const TArray<FWidgetPrefixMapping>& GetDefaultUMGWidgetPrefixMappings();
+FIGMA2UMG_API void ResetUMGWidgetPrefixMappingsToDefault(TArray<FWidgetPrefixMapping>& OutMappings);
+FIGMA2UMG_API const TCHAR* LexToString(EFigmaUMGWidgetType WidgetType);
+FIGMA2UMG_API UClass* GetUMGWidgetClass(EFigmaUMGWidgetType WidgetType);
+FIGMA2UMG_API bool IsUMGPanelWidgetType(EFigmaUMGWidgetType WidgetType);
+FIGMA2UMG_API bool IsUMGContentWidgetType(EFigmaUMGWidgetType WidgetType);

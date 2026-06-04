@@ -24,6 +24,10 @@ public:
 
 	virtual UPackage* GetAssetPackage() const override;
 protected:
+	FString GetTextureAssetName() const;
+	bool ShouldUseUITextureGroup() const;
+	void ApplyTextureSettings(UTexture2D* Texture) const;
+
 	UPROPERTY()
 	TObjectPtr<UTexture2D> Asset = nullptr;
 

@@ -11,6 +11,8 @@
 
 #include "FigmaSection.generated.h"
 
+class UTexture2DBuilder;
+
 UCLASS()
 class FIGMA2UMG_API UFigmaSection : public  UFigmaNode, public IFigmaContainer
 {
@@ -53,6 +55,9 @@ public:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UFigmaNode>> Children;
+
+	UPROPERTY()
+	TObjectPtr<UTexture2DBuilder> Texture2DBuilder = nullptr;
 
 	UPROPERTY()
 	FFigmaRectangle AbsoluteBoundingBox;

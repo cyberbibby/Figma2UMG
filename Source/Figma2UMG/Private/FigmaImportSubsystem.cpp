@@ -15,6 +15,8 @@ UFigmaImporter* UFigmaImportSubsystem::Request(const TObjectPtr<URequestParams> 
 	UFigmaImporter* request = Requests.Emplace_GetRef(NewObject<UFigmaImporter>());
 	WidgetOverrides = &InProperties->WidgetOverrides;
 	FrameToButtonOverride = &InProperties->FrameToButton;
+	WidgetPrefixMappings = &InProperties->WidgetPrefixMappings;
+	bDebugNodeName = InProperties->DebugNodeName;
 
 	RefreshFontAssets();
 	request->Init(InProperties, InRequesterCallback);;
@@ -26,7 +28,33 @@ void UFigmaImportSubsystem::RemoveRequest(UFigmaImporter* FigmaImporter)
 {
 	WidgetOverrides = nullptr;
 	FrameToButtonOverride = nullptr;
+	WidgetPrefixMappings = nullptr;
+	bDebugNodeName = false;
 	Requests.Remove(FigmaImporter);
+}
+
+const FWidgetPrefixMapping* UFigmaImportSubsystem::FindWidgetPrefixMappingForNode(const FString& NodeName) const
+{
+	if (!WidgetPrefixMappings || NodeName.IsEmpty())
+	{
+		return nullptr;
+	}
+
+	const FWidgetPrefixMapping* BestMapping = nullptr;
+	for (const FWidgetPrefixMapping& Mapping : *WidgetPrefixMappings)
+	{
+		if (!Mapping.Match(NodeName))
+		{
+			continue;
+		}
+
+		if (!BestMapping || Mapping.Prefix.Len() > BestMapping->Prefix.Len())
+		{
+			BestMapping = &Mapping;
+		}
+	}
+
+	return BestMapping;
 }
 
 bool UFigmaImportSubsystem::ShouldGenerateButton(const FString& NodeName) const
@@ -114,11 +142,26 @@ void UFigmaImportSubsystem::TryRenameWidget(const FString& InName, TObjectPtr<UW
 	if (!Widget)
 		return;
 
-	if (Widget->GetName().Contains(InName, ESearchCase::IgnoreCase))
+	if (Widget->GetName().Equals(InName, ESearchCase::CaseSensitive))
 		return;
 
-	const FString UniqueName = MakeUniqueObjectName(Widget->GetOuter(), Widget->GetClass(), *InName).ToString();
-	Widget->Rename(*UniqueName);
+	const FName ObjectName = MakeWidgetObjectName(Widget->GetOuter(), Widget->GetClass(), InName, Widget);
+	Widget->Rename(*ObjectName.ToString());
+}
+
+FName UFigmaImportSubsystem::MakeWidgetObjectName(UObject* Outer, UClass* WidgetClass, const FString& WidgetName, const UObject* ExistingObject)
+{
+	const FName DesiredName(*WidgetName);
+	if (Outer && !DesiredName.IsNone())
+	{
+		const UObject* ExistingNamedObject = FindObject<UObject>(Outer, *WidgetName);
+		if (!ExistingNamedObject || ExistingNamedObject == ExistingObject)
+		{
+			return DesiredName;
+		}
+	}
+
+	return MakeUniqueObjectName(Outer, WidgetClass, DesiredName);
 }
 
 UMaterialInstanceConstant* UFigmaImportSubsystem::GetBorderMaterialInstances(float StrokeWeight) const

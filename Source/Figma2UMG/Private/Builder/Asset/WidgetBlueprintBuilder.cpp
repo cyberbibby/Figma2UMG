@@ -11,9 +11,15 @@
 #include "WidgetBlueprint.h"
 #include "WidgetBlueprintFactory.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "Blueprint/IUserListEntry.h"
+#include "Blueprint/IUserObjectListEntry.h"
 #include "Blueprint/WidgetTree.h"
 #include "Builder/WidgetBlueprintHelper.h"
+#include "Builder/Widget/GenericWidgetBuilder.h"
+#include "Builder/Widget/Panels/CanvasBuilder.h"
+#include "Builder/Widget/SizeBoxWidgetBuilder.h"
 #include "Builder/Widget/WidgetBuilder.h"
+#include "Interfaces/FigmaContainer.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Parser/FigmaFile.h"
@@ -22,11 +28,117 @@
 #include "Parser/Nodes/FigmaNode.h"
 #include "Parser/Properties/FigmaComponentRef.h"
 
+void UWidgetBlueprintBuilder::SetImplementListEntryInterface(bool bInImplementListEntryInterface)
+{
+	bImplementListEntryInterface = bInImplementListEntryInterface;
+}
+
+bool UWidgetBlueprintBuilder::IsListEntryWidgetBlueprintBuilder() const
+{
+	return bImplementListEntryInterface;
+}
+
+bool UWidgetBlueprintBuilder::ShouldReuseExistingWidgetBlueprint() const
+{
+	return Node && Node->HasWidgetBlueprintPrefix();
+}
+
+TObjectPtr<UWidgetBlueprint> UWidgetBlueprintBuilder::FindExistingWidgetBlueprintByNodeName() const
+{
+	if (!ShouldReuseExistingWidgetBlueprint())
+	{
+		return nullptr;
+	}
+
+	const FString AssetName = ObjectTools::SanitizeInvalidChars(Node->GetNodeName().TrimStartAndEnd(), INVALID_OBJECTNAME_CHARACTERS);
+	if (AssetName.IsEmpty())
+	{
+		return nullptr;
+	}
+
+	FARFilter Filter;
+	Filter.PackagePaths.Add(FName(TEXT("/Game")));
+	Filter.ClassPaths.Add(UWidgetBlueprint::StaticClass()->GetClassPathName());
+	Filter.bRecursivePaths = true;
+
+	TArray<FAssetData> AssetDataList;
+	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	AssetRegistryModule.Get().GetAssets(Filter, AssetDataList);
+	AssetDataList.Sort([](const FAssetData& A, const FAssetData& B)
+	{
+		return A.GetObjectPathString() < B.GetObjectPathString();
+	});
+
+	for (const FAssetData& AssetData : AssetDataList)
+	{
+		if (!AssetData.AssetName.IsEqual(FName(*AssetName), ENameCase::CaseSensitive))
+		{
+			continue;
+		}
+
+		UWidgetBlueprint* ExistingWidgetBlueprint = Cast<UWidgetBlueprint>(AssetData.FastGetAsset(true));
+		if (ExistingWidgetBlueprint)
+		{
+			UE_LOG_Figma2UMG(Display, TEXT("[UWidgetBlueprintBuilder] Reusing existing WidgetBlueprint %s for Figma node %s."), *AssetData.GetObjectPathString(), *Node->GetNodeName());
+			return ExistingWidgetBlueprint;
+		}
+	}
+
+	return nullptr;
+}
+
+TScriptInterface<IWidgetBuilder> UWidgetBlueprintBuilder::CreateListEntryRootWidgetBuilder() const
+{
+	UGenericContentWidgetBuilder* ScaleBoxBuilder = NewObject<UGenericContentWidgetBuilder>();
+	ScaleBoxBuilder->SetNode(Node);
+	ScaleBoxBuilder->SetWidgetType(EFigmaUMGWidgetType::ScaleBox);
+	ScaleBoxBuilder->SetWidgetNameOverride(TEXT("SCL_Root"));
+
+	USizeBoxWidgetBuilder* SizeBoxBuilder = NewObject<USizeBoxWidgetBuilder>();
+	SizeBoxBuilder->SetNode(Node);
+	SizeBoxBuilder->SetWidgetNameOverride(TEXT("SIZ_Content"));
+
+	UCanvasBuilder* ContentPanelBuilder = NewObject<UCanvasBuilder>();
+	ContentPanelBuilder->SetNode(Node);
+	ContentPanelBuilder->SetWidgetNameOverride(TEXT("PNL_Content"));
+
+	if (const IFigmaContainer* Container = Cast<IFigmaContainer>(Node))
+	{
+		for (const UFigmaNode* Child : Container->GetChildrenConst())
+		{
+			if (!Child)
+			{
+				continue;
+			}
+
+			if (TScriptInterface<IWidgetBuilder> ChildBuilder = Child->CreateWidgetBuilders())
+			{
+				ContentPanelBuilder->AddChild(ChildBuilder);
+			}
+		}
+	}
+	else if (TScriptInterface<IWidgetBuilder> ContentBuilder = Node->CreateWidgetBuilders(true))
+	{
+		ContentPanelBuilder->AddChild(ContentBuilder);
+	}
+
+	SizeBoxBuilder->SetChild(ContentPanelBuilder);
+	ScaleBoxBuilder->SetChild(SizeBoxBuilder);
+	return ScaleBoxBuilder;
+}
+
 void UWidgetBlueprintBuilder::LoadOrCreateAssets()
 {
 	UWidgetBlueprint* WidgetAsset = Cast<UWidgetBlueprint>(Asset);
 	if (WidgetAsset == nullptr)
 	{
+		WidgetAsset = FindExistingWidgetBlueprintByNodeName();
+		bReusingExistingWidgetBlueprint = WidgetAsset != nullptr;
+	}
+
+	if (WidgetAsset == nullptr)
+	{
+		bReusingExistingWidgetBlueprint = false;
 		const FString PackagePath = UPackageTools::SanitizePackageName(Node->GetPackageNameForBuilder(this));
 		const FString AssetName = ObjectTools::SanitizeInvalidChars(Node->GetUAssetName(), INVALID_OBJECTNAME_CHARACTERS);
 		const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
@@ -52,15 +164,60 @@ void UWidgetBlueprintBuilder::LoadOrCreateAssets()
 		Asset = WidgetAsset;
 	}
 
+	if (WidgetAsset && Asset != WidgetAsset)
+	{
+		Asset = WidgetAsset;
+	}
 
-	WidgetAsset->WidgetTree->SetFlags(RF_Transactional);
-	WidgetAsset->WidgetTree->Modify();
+	bool bStructurallyModified = false;
+	if (bImplementListEntryInterface)
+	{
+		TArray<UClass*> ImplementedInterfaces;
+		FBlueprintEditorUtils::FindImplementedInterfaces(WidgetAsset, false, ImplementedInterfaces);
+		if (ImplementedInterfaces.Contains(UUserListEntry::StaticClass()))
+		{
+			FBlueprintEditorUtils::RemoveInterface(WidgetAsset, UUserListEntry::StaticClass()->GetClassPathName(), false);
+			bStructurallyModified = true;
+		}
 
-	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetAsset);
+		const auto EnsureInterface = [WidgetAsset](UClass* InterfaceClass)
+		{
+			TArray<UClass*> ImplementedInterfaces;
+			FBlueprintEditorUtils::FindImplementedInterfaces(WidgetAsset, false, ImplementedInterfaces);
+			if (!ImplementedInterfaces.Contains(InterfaceClass))
+			{
+				if (!FBlueprintEditorUtils::ImplementNewInterface(WidgetAsset, InterfaceClass->GetClassPathName()))
+				{
+					UE_LOG_Figma2UMG(Warning, TEXT("[UWidgetBlueprintBuilder] Failed to add %s interface to %s."), *InterfaceClass->GetName(), *WidgetAsset->GetName());
+				}
+				return true;
+			}
+
+			return false;
+		};
+
+		bStructurallyModified |= EnsureInterface(UUserObjectListEntry::StaticClass());
+	}
+
+	if (!bReusingExistingWidgetBlueprint || bStructurallyModified)
+	{
+		WidgetAsset->WidgetTree->SetFlags(RF_Transactional);
+		WidgetAsset->WidgetTree->Modify();
+
+		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetAsset);
+	}
 }
 
 void UWidgetBlueprintBuilder::LoadAssets()
 {
+	if (UWidgetBlueprint* ExistingWidgetBlueprint = FindExistingWidgetBlueprintByNodeName())
+	{
+		Asset = ExistingWidgetBlueprint;
+		bReusingExistingWidgetBlueprint = true;
+		return;
+	}
+
+	bReusingExistingWidgetBlueprint = false;
 	const FString PackagePath = UPackageTools::SanitizePackageName(Node->GetPackageNameForBuilder(this));
 	const FString AssetName = ObjectTools::SanitizeInvalidChars(Node->GetUAssetName(), INVALID_OBJECTNAME_CHARACTERS);
 	const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
@@ -74,6 +231,7 @@ void UWidgetBlueprintBuilder::LoadAssets()
 void UWidgetBlueprintBuilder::Reset()
 {
 	Asset = nullptr;
+	bReusingExistingWidgetBlueprint = false;
 	if (RootWidgetBuilder)
 	{
 		RootWidgetBuilder->ResetWidget();
@@ -118,6 +276,10 @@ void UWidgetBlueprintBuilder::CompileBP(EBlueprintCompileOptions CompileFlags)
 	FKismetEditorUtilities::CompileBlueprint(WidgetBP, CompileFlags, &LogResults);
 
 	LoadAssets();
+	if (!Asset)
+	{
+		Asset = WidgetBP;
+	}
 }
 
 void UWidgetBlueprintBuilder::CreateWidgetBuilders()
@@ -127,8 +289,13 @@ void UWidgetBlueprintBuilder::CreateWidgetBuilders()
 		UE_LOG_Figma2UMG(Error, TEXT("[CreateWidgetBuilders] Missing Blueprint for node %s."), *Node->GetNodeName());
 		return;
 	}
+	if (bReusingExistingWidgetBlueprint)
+	{
+		UE_LOG_Figma2UMG(Display, TEXT("[CreateWidgetBuilders] Reusing existing WidgetBlueprint %s for node %s. Skipping generated widget tree."), *Asset->GetName(), *Node->GetNodeName());
+		return;
+	}
 	UE_LOG_Figma2UMG(Display, TEXT("[CreateWidgetBuilders] Generating Tree for %s."), *Asset->GetName());
-	RootWidgetBuilder = Node->CreateWidgetBuilders(true);
+	RootWidgetBuilder = bImplementListEntryInterface ? CreateListEntryRootWidgetBuilder() : Node->CreateWidgetBuilders(true);
 }
 
 void UWidgetBlueprintBuilder::PatchAndInsertWidgets()
@@ -136,6 +303,11 @@ void UWidgetBlueprintBuilder::PatchAndInsertWidgets()
 	if (!Asset)
 	{
 		UE_LOG_Figma2UMG(Error, TEXT("[PatchAndInsertWidget] Missing Blueprint for node %s."), *Node->GetNodeName());
+		return;
+	}
+	if (bReusingExistingWidgetBlueprint)
+	{
+		UE_LOG_Figma2UMG(Display, TEXT("[PatchAndInsertWidget] Reusing existing WidgetBlueprint %s for node %s. Skipping tree patch."), *Asset->GetName(), *Node->GetNodeName());
 		return;
 	}
 
@@ -175,6 +347,11 @@ void UWidgetBlueprintBuilder::PatchWidgetBinds()
 		UE_LOG_Figma2UMG(Error, TEXT("[PatchWidgetBinds] Missing Blueprint for node %s."), *Node->GetNodeName());
 		return;
 	}
+	if (bReusingExistingWidgetBlueprint)
+	{
+		UE_LOG_Figma2UMG(Display, TEXT("[PatchWidgetBinds] Reusing existing WidgetBlueprint %s for node %s. Skipping generated binds."), *Asset->GetName(), *Node->GetNodeName());
+		return;
+	}
 	if (!RootWidgetBuilder)
 	{
 		UE_LOG_Figma2UMG(Error, TEXT("[PatchWidgetBinds] Missing WidgetRoot for node %s."), *Node->GetNodeName());
@@ -192,6 +369,11 @@ void UWidgetBlueprintBuilder::PatchWidgetProperties()
 		UE_LOG_Figma2UMG(Error, TEXT("[PatchWidgetProperties] Missing Blueprint for node %s."), *Node->GetNodeName());
 		return;
 	}
+	if (bReusingExistingWidgetBlueprint)
+	{
+		UE_LOG_Figma2UMG(Display, TEXT("[PatchWidgetProperties] Reusing existing WidgetBlueprint %s for node %s. Skipping generated property patch."), *WidgetBP->GetName(), *Node->GetNodeName());
+		return;
+	}
 	if (!RootWidgetBuilder)
 	{
 		UE_LOG_Figma2UMG(Error, TEXT("[PatchWidgetProperties] Missing WidgetRoot for node %s."), *Node->GetNodeName());
@@ -199,6 +381,9 @@ void UWidgetBlueprintBuilder::PatchWidgetProperties()
 	}
 	UE_LOG_Figma2UMG(Display, TEXT("[PatchWidgetProperties] Bluepring %s."), *WidgetBP->GetName());
 	RootWidgetBuilder->PatchWidgetProperties();
+
+	WidgetBP->WidgetTree->Modify();
+	FBlueprintEditorUtils::MarkBlueprintAsModified(WidgetBP);
 }
 
 TObjectPtr<UWidgetBlueprint> UWidgetBlueprintBuilder::GetAsset() const

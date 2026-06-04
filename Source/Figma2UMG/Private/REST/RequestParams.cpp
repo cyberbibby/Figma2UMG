@@ -7,12 +7,25 @@
 #include "Figma2UMGModule.h"
 #include "Settings/Figma2UMGSettings.h"
 
-FString URequestParams::ExtractFileKeyFromInput(const FString& InFileURL)
+namespace
 {
-	FString FileURL = InFileURL.TrimStartAndEnd();
-	if (FileURL.IsEmpty())
+	FString NormalizeFigmaNodeId(FString NodeId)
 	{
-		return FileURL;
+		NodeId = NodeId.TrimStartAndEnd();
+		NodeId.ReplaceInline(TEXT("%3A"), TEXT(":"), ESearchCase::IgnoreCase);
+		NodeId.ReplaceInline(TEXT("%3B"), TEXT(";"), ESearchCase::IgnoreCase);
+		NodeId.ReplaceInline(TEXT("%2D"), TEXT("-"), ESearchCase::IgnoreCase);
+		NodeId.ReplaceInline(TEXT("-"), TEXT(":"), ESearchCase::CaseSensitive);
+		return NodeId;
+	}
+}
+
+FString URequestParams::ExtractFileKeyFromInput(const FString& InLayerURL)
+{
+	FString LayerURL = InLayerURL.TrimStartAndEnd();
+	if (LayerURL.IsEmpty())
+	{
+		return LayerURL;
 	}
 
 	const TCHAR* FigmaPathPrefixes[] =
@@ -24,14 +37,14 @@ FString URequestParams::ExtractFileKeyFromInput(const FString& InFileURL)
 
 	for (const TCHAR* Prefix : FigmaPathPrefixes)
 	{
-		const int32 PrefixIndex = FileURL.Find(Prefix, ESearchCase::IgnoreCase);
+		const int32 PrefixIndex = LayerURL.Find(Prefix, ESearchCase::IgnoreCase);
 		if (PrefixIndex == INDEX_NONE)
 		{
 			continue;
 		}
 
 		const int32 KeyStartIndex = PrefixIndex + FCString::Strlen(Prefix);
-		FString KeyRemainder = FileURL.Mid(KeyStartIndex);
+		FString KeyRemainder = LayerURL.Mid(KeyStartIndex);
 		if (KeyRemainder.IsEmpty())
 		{
 			continue;
@@ -55,7 +68,43 @@ FString URequestParams::ExtractFileKeyFromInput(const FString& InFileURL)
 		}
 	}
 
-	return FileURL;
+	return LayerURL;
+}
+
+FString URequestParams::ExtractNodeIdFromInput(const FString& InLayerURL)
+{
+	FString LayerURL = InLayerURL.TrimStartAndEnd();
+	if (LayerURL.IsEmpty())
+	{
+		return FString();
+	}
+
+	static const FString NodeIdKey(TEXT("node-id="));
+	const int32 NodeIdIndex = LayerURL.Find(NodeIdKey, ESearchCase::IgnoreCase);
+	if (NodeIdIndex == INDEX_NONE)
+	{
+		return FString();
+	}
+
+	const int32 NodeIdStartIndex = NodeIdIndex + NodeIdKey.Len();
+	FString NodeIdRemainder = LayerURL.Mid(NodeIdStartIndex);
+	if (NodeIdRemainder.IsEmpty())
+	{
+		return FString();
+	}
+
+	int32 NodeIdEndIndex = NodeIdRemainder.Len();
+	const TCHAR Delimiters[] = { TEXT('&'), TEXT('#'), TEXT('/'), TEXT(')'), TEXT(']') };
+	for (const TCHAR Delimiter : Delimiters)
+	{
+		int32 DelimiterIndex = INDEX_NONE;
+		if (NodeIdRemainder.FindChar(Delimiter, DelimiterIndex))
+		{
+			NodeIdEndIndex = FMath::Min(NodeIdEndIndex, DelimiterIndex);
+		}
+	}
+
+	return NormalizeFigmaNodeId(NodeIdRemainder.Left(NodeIdEndIndex));
 }
 
 URequestParams::URequestParams(const FObjectInitializer& ObjectInitializer)
@@ -65,17 +114,23 @@ URequestParams::URequestParams(const FObjectInitializer& ObjectInitializer)
 	if (Settings)
 	{
 		AccessToken = Settings->AccessToken;
-		FileKey = Settings->FileKey;
+		LayerURL = Settings->LayerURL;
 		LibraryFileKeys = Settings->LibraryFileKeys;
 		DownloadFontsFromGoogle = Settings->DownloadFontsFromGoogle;
 		GFontsAPIKey = Settings->GFontsAPIKey;
 		UsePrototypeFlow = Settings->UsePrototypeFlow;
 		FrameToButton = Settings->FrameToButton;
+		WidgetPrefixMappings = Settings->WidgetPrefixMappings;
 		WidgetOverrides = Settings->WidgetOverrides;
 		SaveAllAtEnd = Settings->SaveAllAtEnd;
 		MaxURLImageRequest = Settings->MaxURLImageRequest;
 		NodeImageScale = Settings->NodeImageScale;
 		ContentRootFolder = Settings->ContentRootFolder;
+	}
+
+	if (WidgetPrefixMappings.IsEmpty())
+	{
+		ResetUMGWidgetPrefixMappingsToDefault(WidgetPrefixMappings);
 	}
 
 

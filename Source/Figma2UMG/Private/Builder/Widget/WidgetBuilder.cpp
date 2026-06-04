@@ -6,6 +6,7 @@
 
 #include "Figma2UMGModule.h"
 #include "Blueprint/WidgetTree.h"
+#include "Builder/Asset/Texture2DBuilder.h"
 #include "Builder/WidgetBlueprintHelper.h"
 #include "Components/Border.h"
 #include "Components/BorderSlot.h"
@@ -19,11 +20,75 @@
 #include "Components/Widget.h"
 #include "Components/WrapBox.h"
 #include "Components/WrapBoxSlot.h"
+#include "Engine/Texture2D.h"
 #include "Parser/Nodes/FigmaGroup.h"
 #include "Parser/Nodes/FigmaInstance.h"
 #include "Parser/Nodes/FigmaNode.h"
 #include "Parser/Nodes/FigmaSection.h"
 #include "Parser/Nodes/Vectors/FigmaText.h"
+
+namespace
+{
+	bool IsListWidgetNode(const UFigmaNode* Node)
+	{
+		if (!Node)
+		{
+			return false;
+		}
+
+		const FFigmaUMGSemanticName SemanticName = Node->GetUMGSemanticName();
+		return SemanticName.WidgetType == EFigmaUMGWidgetType::ListView
+			|| SemanticName.WidgetType == EFigmaUMGWidgetType::TileView;
+	}
+
+	bool HasListWidgetAncestor(const UFigmaNode* Node)
+	{
+		for (TObjectPtr<UFigmaNode> ParentNode = Node ? Node->GetParentNode() : nullptr; ParentNode; ParentNode = ParentNode->GetParentNode())
+		{
+			if (IsListWidgetNode(ParentNode))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	FVector2D GetCanvasSlotPosition(const UFigmaNode* Node)
+	{
+		if (!Node)
+		{
+			return FVector2D::ZeroVector;
+		}
+
+		const UFigmaNode* ParentNode = Node->GetParentNode();
+		if (ParentNode && HasListWidgetAncestor(Node) && !IsListWidgetNode(Node))
+		{
+			return Node->GetAbsolutePosition(false) - ParentNode->GetAbsolutePosition(false);
+		}
+
+		return Node->GetPosition();
+	}
+}
+
+bool Figma2UMGBrush::MakeTextureBrush(const UFigmaNode* OwnerNode, const UTexture2DBuilder* TextureBuilder, UTexture2D* Texture, FSlateBrush& OutBrush)
+{
+	UTexture2D* BrushTexture = TextureBuilder ? TextureBuilder->GetAsset().Get() : Texture;
+	if (!BrushTexture)
+	{
+		return false;
+	}
+
+	OutBrush.SetResourceObject(BrushTexture);
+	if (OwnerNode)
+	{
+		OutBrush.SetImageSize(Figma2UMGLayout::RoundLayoutVector(OwnerNode->GetAbsoluteSize(true)));
+	}
+	OutBrush.DrawAs = ESlateBrushDrawType::Image;
+	OutBrush.TintColor = FLinearColor::White;
+	OutBrush.Margin = FMargin(0.0f);
+	return true;
+}
 
 void IWidgetBuilder::SetNode(const UFigmaNode* InNode)
 {
@@ -50,6 +115,16 @@ FString IWidgetBuilder::GetWidgetName() const
 	return Node ? Node->GetWidgetName() : FString(TEXT("Widget"));
 }
 
+FString IWidgetBuilder::GetWidgetNameWithPrefix(const FString& Prefix) const
+{
+	if (!WidgetNameOverride.IsEmpty())
+	{
+		return WidgetNameOverride;
+	}
+
+	return Prefix + (Node ? Node->GetWidgetName() : FString(TEXT("Widget")));
+}
+
 TObjectPtr<UWidget> IWidgetBuilder::FindNodeWidgetInParent(const TObjectPtr<UPanelWidget>& ParentWidget) const
 {
 	if (!ParentWidget)
@@ -61,7 +136,8 @@ TObjectPtr<UWidget> IWidgetBuilder::FindNodeWidgetInParent(const TObjectPtr<UPan
 		if (Widget == nullptr)
 			continue;
 
-		if (Widget->GetName().Contains(Node->GetIdForName(), ESearchCase::IgnoreCase))
+		if (Widget->GetName().Contains(Node->GetWidgetName(), ESearchCase::IgnoreCase)
+			|| Widget->GetName().Contains(Node->GetIdForName(), ESearchCase::IgnoreCase))
 		{
 			return Widget;
 		}
@@ -168,7 +244,7 @@ void IWidgetBuilder::SetPosition() const
 	{
 		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
 		{
-			CanvasSlot->SetPosition(Node->GetPosition());
+			CanvasSlot->SetPosition(Figma2UMGLayout::RoundLayoutVector(GetCanvasSlotPosition(Node)));
 			//			CanvasSlot->SetAutoSize(true);
 		}
 		//else if (UHorizontalBoxSlot* HorizontalBoxSlot = Cast<UHorizontalBoxSlot>(Widget->Slot))
@@ -191,7 +267,15 @@ void IWidgetBuilder::SetRotation() const
 	const TObjectPtr<UWidget> Widget = GetWidget();
 	if (Widget && Widget->Slot)
 	{
-		if (IsTopWidgetForNode())
+		if (IsListWidgetNode(Node))
+		{
+			Widget->SetRenderTransformAngle(0.0f);
+		}
+		else if (Cast<UFigmaText>(Node) && HasListWidgetAncestor(Node))
+		{
+			Widget->SetRenderTransformAngle(FMath::UnwindDegrees(Node->GetAbsoluteRotation()));
+		}
+		else if (IsTopWidgetForNode())
 		{
 			Widget->SetRenderTransformAngle(Node->GetRotation());
 		}
@@ -214,7 +298,7 @@ void IWidgetBuilder::SetSize() const
 	{
 		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
 		{
-			CanvasSlot->SetSize(Size);
+			CanvasSlot->SetSize(Figma2UMGLayout::RoundLayoutVector(Size));
 
 			if (SizeToContent || Widget->IsA<UUserWidget>())
 			{
@@ -228,14 +312,14 @@ void IWidgetBuilder::SetSize() const
 		else if (UHorizontalBoxSlot* HorizontalBoxSlot = Cast<UHorizontalBoxSlot>(Widget->Slot))
 		{
 			FSlateChildSize ChildSize;
-			ChildSize.Value = Size.X;
+			ChildSize.Value = Figma2UMGLayout::RoundLayoutValue(Size.X);
 			ChildSize.SizeRule = SizeToContent ? ESlateSizeRule::Fill : ESlateSizeRule::Automatic;
 			HorizontalBoxSlot->SetSize(ChildSize);
 		}
 		else if (UVerticalBoxSlot* VerticalBoxSlot = Cast<UVerticalBoxSlot>(Widget->Slot))
 		{
 			FSlateChildSize ChildSize;
-			ChildSize.Value = Size.Y;
+			ChildSize.Value = Figma2UMGLayout::RoundLayoutValue(Size.Y);
 			ChildSize.SizeRule = SizeToContent ? ESlateSizeRule::Fill : ESlateSizeRule::Automatic;
 			VerticalBoxSlot->SetSize(ChildSize);
 		}

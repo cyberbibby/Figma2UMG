@@ -27,6 +27,7 @@ public:
 protected:
 	virtual TObjectPtr<UPanelWidget> GetPanelWidget() const PURE_VIRTUAL(UMultiChildBuilder::GetPanelWidget(), return nullptr;);
 	virtual void PatchAndInsertChildren(TObjectPtr<UWidgetBlueprint> WidgetBlueprint, const TObjectPtr<UPanelWidget>& ParentWidget);
+	virtual void SortChildrenForLayout();
 	void SetChildrenWidget(TObjectPtr<UPanelWidget> ParentWidget);
 
 	void FixSpacers(const TObjectPtr<UPanelWidget>& PanelWidget) const;

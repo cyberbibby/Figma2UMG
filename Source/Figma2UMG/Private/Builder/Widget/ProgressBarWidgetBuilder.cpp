@@ -62,6 +62,17 @@ namespace
 		return !ProgressToken.IsEmpty() && ProgressToken.Equals(FillToken, ESearchCase::IgnoreCase);
 	}
 
+	FString GetComparableNodeName(const UFigmaNode* Node)
+	{
+		if (Node == nullptr)
+		{
+			return FString();
+		}
+
+		const FFigmaUMGSemanticName SemanticName = Node->GetUMGSemanticName();
+		return SemanticName.SemanticName.IsEmpty() ? Node->GetNodeName() : SemanticName.SemanticName;
+	}
+
 	FLinearColor GetFirstVisibleFillColor(const UFigmaNode* Node)
 	{
 		if (const UFigmaGroup* GroupNode = Cast<UFigmaGroup>(Node))
@@ -114,7 +125,7 @@ namespace
 		Brush.TintColor = Color;
 		Brush.DrawAs = ESlateBrushDrawType::RoundedBox;
 		Brush.ImageType = ESlateBrushImageType::NoImage;
-		Brush.ImageSize = Node ? Node->GetAbsoluteSize(true) : FVector2D::ZeroVector;
+		Brush.ImageSize = Node ? Figma2UMGLayout::RoundLayoutVector(Node->GetAbsoluteSize(true)) : FVector2D::ZeroVector;
 		Brush.Margin = FMargin(0.0f);
 		Brush.OutlineSettings.Width = 0.0f;
 		Brush.OutlineSettings.Color = FLinearColor::Transparent;
@@ -195,12 +206,13 @@ const UFigmaNode* UProgressBarWidgetBuilder::FindFillNode() const
 	}
 
 	const FFigmaUMGSemanticName SemanticName = Node->GetUMGSemanticName();
-	if (SemanticName.SemanticName.IsEmpty())
+	const FString ProgressName = SemanticName.SemanticName.IsEmpty() ? Node->GetNodeName() : SemanticName.SemanticName;
+	if (ProgressName.IsEmpty())
 	{
 		return FillNode;
 	}
 
-	const FString ExpectedFillName = SemanticName.SemanticName + TEXT("Fill");
+	const FString ExpectedFillName = ProgressName + TEXT("Fill");
 	for (const UFigmaNode* SiblingNode : ParentContainer->GetChildrenConst())
 	{
 		if (SiblingNode == nullptr || SiblingNode == Node)
@@ -208,9 +220,8 @@ const UFigmaNode* UProgressBarWidgetBuilder::FindFillNode() const
 			continue;
 		}
 
-		const FFigmaUMGSemanticName SiblingSemanticName = SiblingNode->GetUMGSemanticName();
-		if (SiblingSemanticName.Role == EFigmaUMGWidgetRole::Ignore
-			&& SiblingSemanticName.SemanticName.Equals(ExpectedFillName, ESearchCase::IgnoreCase))
+		const FString SiblingName = GetComparableNodeName(SiblingNode);
+		if (SiblingName.Equals(ExpectedFillName, ESearchCase::IgnoreCase))
 		{
 			FillNode = SiblingNode;
 			break;
@@ -229,9 +240,8 @@ const UFigmaNode* UProgressBarWidgetBuilder::FindFillNode() const
 			continue;
 		}
 
-		const FFigmaUMGSemanticName SiblingSemanticName = SiblingNode->GetUMGSemanticName();
-		if (SiblingSemanticName.Role == EFigmaUMGWidgetRole::Ignore
-			&& IsLikelyNamedFill(SemanticName.SemanticName, SiblingSemanticName.SemanticName)
+		const FString SiblingName = GetComparableNodeName(SiblingNode);
+		if (IsLikelyNamedFill(ProgressName, SiblingName)
 			&& HasRectOverlap(Node, SiblingNode))
 		{
 			FillNode = SiblingNode;
@@ -254,9 +264,8 @@ const UFigmaNode* UProgressBarWidgetBuilder::FindFillNode() const
 			continue;
 		}
 
-		const FFigmaUMGSemanticName SiblingSemanticName = SiblingNode->GetUMGSemanticName();
-		if (SiblingSemanticName.Role != EFigmaUMGWidgetRole::Ignore
-			|| !SiblingSemanticName.SemanticName.EndsWith(TEXT("Fill"), ESearchCase::IgnoreCase)
+		const FString SiblingName = GetComparableNodeName(SiblingNode);
+		if (!SiblingName.EndsWith(TEXT("Fill"), ESearchCase::IgnoreCase)
 			|| !HasRectOverlap(Node, SiblingNode))
 		{
 			continue;
@@ -297,7 +306,7 @@ float UProgressBarWidgetBuilder::GetInitialPercent() const
 	const UFigmaNode* FillNode = FindFillNode();
 	if (FillNode == nullptr)
 	{
-		UE_LOG_Figma2UMG(Warning, TEXT("[UProgressBarWidgetBuilder::GetInitialPercent] ProgressBar node %s is missing a sibling fill node named UMG/Ignore/%sFill."), *Node->GetNodeName(), *Node->GetUMGSemanticName().SemanticName);
+		UE_LOG_Figma2UMG(Warning, TEXT("[UProgressBarWidgetBuilder::GetInitialPercent] ProgressBar node %s is missing an overlapping sibling fill node named %sFill."), *Node->GetNodeName(), *GetComparableNodeName(Node));
 		return 0.0f;
 	}
 

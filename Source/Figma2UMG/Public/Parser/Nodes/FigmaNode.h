@@ -41,6 +41,11 @@ public:
 	FString GetUniqueName(bool RemoveInstanceId = false) const;
 	FString GetWidgetName(bool RemoveInstanceId = false) const;
 	virtual FString GetUAssetName() const;
+	bool HasImageWidgetPrefix() const;
+	bool HasTextureOnlyImagePrefix() const;
+	FString GetTextureOnlyImageAssetName() const;
+	bool HasProjectTextureReferencePrefix() const;
+	bool HasWidgetBlueprintPrefix() const;
 	ESlateVisibility GetVisibility() const;
 
 	FFigmaUMGSemanticName GetUMGSemanticName() const;

@@ -17,7 +17,7 @@ void USizeBoxWidgetBuilder::PatchAndInsertWidget(TObjectPtr<UWidgetBlueprint> Wi
 {
 	Widget = Cast<USizeBox>(WidgetToPatch);
 	const FString NodeName = Node->GetNodeName();
-	const FString WidgetName = "SizeBox-" + Node->GetWidgetName();
+	const FString WidgetName = GetWidgetNameWithPrefix(TEXT("SIZ_"));
 	if (Widget)
 	{
 		UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();

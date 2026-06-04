@@ -341,7 +341,9 @@ const TArray<FName>& SImporterWidget::GetSavedInputPropertyNames() const
 		GET_MEMBER_NAME_CHECKED(URequestParams, ContentRootFolder),
 		GET_MEMBER_NAME_CHECKED(URequestParams, DownloadFontsFromGoogle),
 		GET_MEMBER_NAME_CHECKED(URequestParams, GFontsAPIKey),
+		GET_MEMBER_NAME_CHECKED(URequestParams, DebugNodeName),
 		GET_MEMBER_NAME_CHECKED(URequestParams, FrameToButton),
+		GET_MEMBER_NAME_CHECKED(URequestParams, WidgetPrefixMappings),
 		GET_MEMBER_NAME_CHECKED(URequestParams, WidgetOverrides),
 	};
 

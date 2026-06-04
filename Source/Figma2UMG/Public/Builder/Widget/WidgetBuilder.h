@@ -17,7 +17,35 @@ class UWidget;
 class UContentWidget;
 class UPanelWidget;
 class UFigmaNode;
+class UTexture2DBuilder;
+class UTexture2D;
 
+namespace Figma2UMGLayout
+{
+	inline float RoundLayoutValue(float Value)
+	{
+		return FMath::RoundToFloat(Value);
+	}
+
+	inline FVector2D RoundLayoutVector(const FVector2D& Value)
+	{
+		return FVector2D(RoundLayoutValue(Value.X), RoundLayoutValue(Value.Y));
+	}
+
+	inline FMargin RoundLayoutMargin(const FMargin& Value)
+	{
+		return FMargin(
+			RoundLayoutValue(Value.Left),
+			RoundLayoutValue(Value.Top),
+			RoundLayoutValue(Value.Right),
+			RoundLayoutValue(Value.Bottom));
+	}
+}
+
+namespace Figma2UMGBrush
+{
+	FIGMA2UMG_API bool MakeTextureBrush(const UFigmaNode* OwnerNode, const UTexture2DBuilder* TextureBuilder, UTexture2D* Texture, FSlateBrush& OutBrush);
+}
 
 UINTERFACE(BlueprintType, meta = (CannotImplementInterfaceInBlueprint))
 class FIGMA2UMG_API UWidgetBuilder : public UInterface
@@ -57,6 +85,7 @@ protected:
 	void OnInsert() const;
 
 	bool IsTopWidgetForNode() const;
+	FString GetWidgetNameWithPrefix(const FString& Prefix) const;
 
 	void SetPosition() const;
 	void SetRotation() const;

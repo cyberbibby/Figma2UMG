@@ -148,7 +148,7 @@ void UHBoxBuilder::Setup() const
 		if (bHasGeometry && ParentSize.X > KINDA_SMALL_NUMBER)
 		{
 			SlotSize.SizeRule = ESlateSizeRule::Fill;
-			SlotSize.Value = FMath::Max(ChildSize.X, 1.0f);
+			SlotSize.Value = FMath::Max(Figma2UMGLayout::RoundLayoutValue(ChildSize.X), 1.0f);
 		}
 		else
 		{
@@ -175,23 +175,45 @@ void UHBoxBuilder::Setup() const
 				}
 			}
 
-			Slot->SetPadding(FMargin(
+			Slot->SetPadding(Figma2UMGLayout::RoundLayoutMargin(FMargin(
 				ChildIndex == 0 ? ChildPosition.X : 0.0f,
 				ChildPosition.Y,
 				FMath::Max(0.0f, RightPadding),
-				FMath::Max(0.0f, ParentSize.Y - (ChildPosition.Y + ChildSize.Y))));
+				FMath::Max(0.0f, ParentSize.Y - (ChildPosition.Y + ChildSize.Y)))));
 		}
 		else
 		{
 			const bool bIsFirstChild = ChildIndex == 0;
 			const bool bIsLastChild = ChildIndex == ChildCount - 1;
-			Slot->SetPadding(FMargin(
+			Slot->SetPadding(Figma2UMGLayout::RoundLayoutMargin(FMargin(
 				bIsFirstChild ? FigmaGroup->PaddingLeft : 0.0f,
 				FigmaGroup->PaddingTop,
 				bIsLastChild ? FigmaGroup->PaddingRight : FigmaGroup->ItemSpacing,
-				FigmaGroup->PaddingBottom));
+				FigmaGroup->PaddingBottom)));
 		}
 	}
+}
+
+void UHBoxBuilder::SortChildrenForLayout()
+{
+	ChildWidgetBuilders.Sort([](const TScriptInterface<IWidgetBuilder>& A, const TScriptInterface<IWidgetBuilder>& B)
+	{
+		const UFigmaNode* NodeA = A.GetInterface() ? A->GetNode() : nullptr;
+		const UFigmaNode* NodeB = B.GetInterface() ? B->GetNode() : nullptr;
+		if (NodeA == nullptr || NodeB == nullptr)
+		{
+			return NodeA != nullptr;
+		}
+
+		const FVector2D PositionA = NodeA->GetPosition();
+		const FVector2D PositionB = NodeB->GetPosition();
+		if (!FMath::IsNearlyEqual(PositionA.X, PositionB.X))
+		{
+			return PositionA.X < PositionB.X;
+		}
+
+		return PositionA.Y < PositionB.Y;
+	});
 }
 
 void UHBoxBuilder::GetPaddingValue(FMargin& Padding) const

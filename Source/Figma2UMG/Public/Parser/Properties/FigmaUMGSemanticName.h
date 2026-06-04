@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Settings/ClassOverrides.h"
 
 #include "FigmaUMGSemanticName.generated.h"
 
@@ -26,7 +27,31 @@ enum class EFigmaUMGWidgetRole : uint8
 	WidgetSwitcher,
 	Panel,
 	Decor,
-	Ignore
+	Ignore,
+	SizeBox,
+	ScaleBox,
+	SafeZone,
+	MenuAnchor,
+	NamedSlot,
+	BackgroundBlur,
+	InvalidationBox,
+	RetainerBox,
+	WindowTitleBarArea,
+	ScrollBar,
+	EditableText,
+	EditableTextBox,
+	MultiLineEditableText,
+	MultiLineEditableTextBox,
+	ComboBoxString,
+	SpinBox,
+	InputKeySelector,
+	Throbber,
+	CircularThrobber,
+	Spacer,
+	ListView,
+	TileView,
+	UniformGridPanel,
+	GridPanel,
 };
 
 USTRUCT()
@@ -35,10 +60,13 @@ struct FIGMA2UMG_API FFigmaUMGSemanticName
 	GENERATED_BODY()
 
 	UPROPERTY()
-	bool bHasUMGPrefix = false;
+	bool bHasWidgetPrefix = false;
 
 	UPROPERTY()
 	EFigmaUMGWidgetRole Role = EFigmaUMGWidgetRole::Auto;
+
+	UPROPERTY()
+	EFigmaUMGWidgetType WidgetType = EFigmaUMGWidgetType::None;
 
 	UPROPERTY()
 	FString SemanticName;
@@ -50,7 +78,7 @@ struct FIGMA2UMG_API FFigmaUMGSemanticName
 
 	bool HasExplicitRole() const
 	{
-		return bHasUMGPrefix && Role != EFigmaUMGWidgetRole::Auto;
+		return bHasWidgetPrefix && Role != EFigmaUMGWidgetRole::Auto;
 	}
 };
 

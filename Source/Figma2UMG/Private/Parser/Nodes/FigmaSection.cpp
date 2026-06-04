@@ -7,6 +7,7 @@
 #include "Figma2UMGModule.h"
 #include "Blueprint/WidgetTree.h"
 #include "Builder/Asset/MaterialBuilder.h"
+#include "Builder/Asset/Texture2DBuilder.h"
 #include "Builder/Widget/BorderWidgetBuilder.h"
 #include "Builder/Widget/Panels/CanvasBuilder.h"
 #include "Components/Border.h"
@@ -56,20 +57,29 @@ FString UFigmaSection::GetCurrentPackagePath() const
 
 bool UFigmaSection::CreateAssetBuilder(const FString& InFileKey, TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders)
 {
+	if (HasTextureOnlyImagePrefix())
+	{
+		Texture2DBuilder = NewObject<UTexture2DBuilder>();
+		Texture2DBuilder->SetNode(InFileKey, this);
+		AssetBuilders.Add(Texture2DBuilder);
+		return true;
+	}
+
 	CreatePaintAssetBuilderIfNeeded(InFileKey, AssetBuilders, Fills, Strokes);
 	return Super::CreateAssetBuilder(InFileKey, AssetBuilders);
 }
 
 FString UFigmaSection::GetPackageNameForBuilder(const TScriptInterface<IAssetBuilder>& InAssetBuilder) const
 {
-	if (Cast<UMaterialBuilder>(InAssetBuilder.GetObject()))
+	if (Cast<UMaterialBuilder>(InAssetBuilder.GetObject()) || Cast<UTexture2DBuilder>(InAssetBuilder.GetObject()))
 	{
 		TObjectPtr<UFigmaNode> TopParentNode = ParentNode;
 		while (TopParentNode && TopParentNode->GetParentNode())
 		{
 			TopParentNode = TopParentNode->GetParentNode();
 		}
-		return TopParentNode->GetCurrentPackagePath() + TEXT("/") + "Material";
+
+		return TopParentNode->GetCurrentPackagePath() + TEXT("/") + (Cast<UTexture2DBuilder>(InAssetBuilder.GetObject()) ? TEXT("Textures") : TEXT("Material"));
 	}
 
 	return Super::GetPackageNameForBuilder(InAssetBuilder);
@@ -77,6 +87,11 @@ FString UFigmaSection::GetPackageNameForBuilder(const TScriptInterface<IAssetBui
 
 TScriptInterface<IWidgetBuilder> UFigmaSection::CreateWidgetBuilders(bool IsRoot/*= false*/, bool AllowFrameButton/*= true*/) const
 {
+	if (HasTextureOnlyImagePrefix())
+	{
+		return nullptr;
+	}
+
 	UCanvasBuilder* CanvasBuilder = NewObject<UCanvasBuilder>();
 	CanvasBuilder->SetNode(this);
 
