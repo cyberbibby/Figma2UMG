@@ -169,6 +169,7 @@ protected:
 	struct ProgressBar
 	{
 	public:
+		void SetOwner(UFigmaImporter* InOwner);
 		void Start(float InAmountOfWork, const FText& InDefaultMessage);
 		void Update(float ExpectedWorkThisFrame, const FText& Message);
 		void Finish();
@@ -176,10 +177,10 @@ protected:
 	private:
 		void UpdateGameThread();
 
+		TWeakObjectPtr<UFigmaImporter> Owner;
 		FScopedSlowTask* ProgressTask = nullptr;
 		float ProgressThisFrame = 0.0f;
 		FText ProgressMessage;
-
 	};
 
 	ProgressBar MainProgress;

@@ -23,6 +23,7 @@
 #include "Parser/FigmaFile.h"
 #include "Parser/FigmaJsonImport.h"
 #include "Misc/FileHelper.h"
+#include "UObject/WeakObjectPtr.h"
 
 UFigmaImporter::UFigmaImporter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -37,6 +38,11 @@ UFigmaImporter::UFigmaImporter(const FObjectInitializer& ObjectInitializer)
 	OnFontDownloadRequestCompleted.BindUObject(this, &UFigmaImporter::HandleFontDownload);
 	OnPatchUAssetsDelegate.BindUObject(this, &UFigmaImporter::OnPatchUAssets);
 	OnPostPatchUAssetsDelegate.BindUObject(this, &UFigmaImporter::OnPostPatchUAssets);
+
+	MainProgress.SetOwner(this);
+	SubProgressImageURLRequest.SetOwner(this);
+	SubProgressImageDownload.SetOwner(this);
+	SubProgressGFontDownload.SetOwner(this);
 }
 
 void UFigmaImporter::Init(const TObjectPtr<URequestParams> InProperties, const FOnFigmaImportUpdateStatusCB& InRequesterCallback)
@@ -199,31 +205,50 @@ bool UFigmaImporter::CreateRequest(const char* EndPoint, const FString& CurrentF
 
 void UFigmaImporter::UpdateStatus(eRequestStatus Status, FString Message)
 {
-	AsyncTask(ENamedThreads::GameThread, [this, Status, Message]()
+	TWeakObjectPtr<UFigmaImporter> WeakThis(this);
+	AsyncTask(ENamedThreads::GameThread, [WeakThis, Status, Message]()
 		{
-			RequesterCallback.ExecuteIfBound(Status, Message);
-		});
+			UFigmaImporter* Importer = WeakThis.Get();
+			if (!Importer)
+			{
+				return;
+			}
 
-	if (Status == eRequestStatus::Failed || Status == eRequestStatus::Succeeded)
-	{
-		UFigmaImportSubsystem* ImporterSubsystem = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
-		if (ImporterSubsystem)
-		{
-			ImporterSubsystem->RemoveRequest(this);
-		}
-		ResetProgressBar();
-	}
+			Importer->RequesterCallback.ExecuteIfBound(Status, Message);
+
+			if (Status == eRequestStatus::Failed || Status == eRequestStatus::Succeeded)
+			{
+				Importer->ResetProgressBar();
+				Importer->RequesterCallback.Unbind();
+
+				UFigmaImportSubsystem* ImporterSubsystem = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
+				if (ImporterSubsystem)
+				{
+					ImporterSubsystem->RemoveRequest(Importer);
+				}
+			}
+		});
 }
 
 void UFigmaImporter::ResetProgressBar()
 {
-	AsyncTask(ENamedThreads::GameThread, [this]()
+	if (IsInGameThread())
 	{
 		SubProgressGFontDownload.Finish();
 		SubProgressImageDownload.Finish();
 		SubProgressImageURLRequest.Finish();
 		MainProgress.Finish();
-	});
+		return;
+	}
+
+	TWeakObjectPtr<UFigmaImporter> WeakThis(this);
+	AsyncTask(ENamedThreads::GameThread, [WeakThis]()
+		{
+			if (UFigmaImporter* Importer = WeakThis.Get())
+			{
+				Importer->ResetProgressBar();
+			}
+		});
 }
 
 TSharedPtr<FJsonObject> UFigmaImporter::ParseRequestReceived(FString MessagePrefix, FHttpResponsePtr HttpResponse)
@@ -332,108 +357,130 @@ void UFigmaImporter::DownloadNextDependency()
 	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_RequestFile", "Downloading Design File."));
 	if (CreateRequest(FIGMA_ENDPOINT_FILES, FileKey, Ids, OnVaRestFileRequestDelegate))
 	{
-		UE_LOG_Figma2UMG(Display, TEXT("Requesting file %s from Figma API"), *FileKey);
+		UE_LOG_Figma2UMG(Display, TEXT("Requesting file %s from Figma API"),
+						 *FileKey);
 	}
 }
 
-void UFigmaImporter::OnFigmaLibraryFileRequestReceived(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+void UFigmaImporter::OnFigmaLibraryFileRequestReceived(
+	FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse,
+	bool bSucceeded)
 {
-	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_ParseLib", "Parsing Library File."));
+	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_ParseLib",
+										"Parsing Library File."));
 	;
-	TSharedPtr<FJsonObject> JsonObj = ParseRequestReceived(TEXT("[Figma library file request] "), HttpResponse);
+	TSharedPtr<FJsonObject> JsonObj =
+		ParseRequestReceived(TEXT("[Figma library file request] "), HttpResponse);
 	if (JsonObj.IsValid())
 	{
 		static FString NameStr("Name");
-		const FString FigmaFilename = UPackageTools::SanitizePackageName(JsonObj->GetStringField(NameStr));
-		const FString FullFilename = FFigma2UMGModule::GetDownloadFilePath(FPaths::Combine(FigmaFilename, FigmaFilename + TEXT(".figma")));
+		const FString FigmaFilename =
+			UPackageTools::SanitizePackageName(JsonObj->GetStringField(NameStr));
+		const FString FullFilename = FFigma2UMGModule::GetDownloadFilePath(
+			FPaths::Combine(FigmaFilename, FigmaFilename + TEXT(".figma")));
 		const FString RawText = HttpResponse->GetContentAsString();
 		FFileHelper::SaveStringToFile(RawText, *FullFilename);
 
-		UFigmaFile* CurrentFile = NewObject<UFigmaFile>();
-		LibraryFileKeys[CurrentLibraryFileKey] = CurrentFile;
+		const FString LibraryFileKey = CurrentLibraryFileKey;
+		AsyncTask(ENamedThreads::GameThread, [this, JsonObj, LibraryFileKey]()
+				  {
+					  UFigmaFile* CurrentFile = NewObject<UFigmaFile>();
+					  LibraryFileKeys[LibraryFileKey] = CurrentFile;
 
-		AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this, JsonObj, CurrentFile]()
-			{
-				FText OutFailReason;
-				if (FigmaJsonImport::JsonObjectToUStruct(JsonObj.ToSharedRef(), CurrentFile->StaticClass(), CurrentFile, &OutFailReason))
-				{
-					MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PostSerializeLib", "PostSerialize Library File."));
-					CurrentFile->PostSerialize(CurrentLibraryFileKey, ContentRootFolder, JsonObj.ToSharedRef());
-					CurrentFile->SetImporter(this);
-					CurrentLibraryFileKey = nullptr;
-					UE_LOG_Figma2UMG(Display, TEXT("Library file %s downloaded."), *CurrentFile->GetFileName());
-					DownloadNextDependency();
-				}
-				else
-				{
-					CurrentLibraryFileKey = nullptr;
-					UpdateStatus(eRequestStatus::Failed, OutFailReason.ToString());
-				}
-			});
+					  FText OutFailReason;
+					  if (FigmaJsonImport::JsonObjectToUStruct(JsonObj.ToSharedRef(),
+															   CurrentFile->StaticClass(),
+															   CurrentFile, &OutFailReason))
+					  {
+						  MainProgress.Update(1.0f,
+											  NSLOCTEXT("Figma2UMG", "Figma2UMG_PostSerializeLib",
+														"PostSerialize Library File."));
+						  CurrentFile->PostSerialize(LibraryFileKey, ContentRootFolder,
+													 JsonObj.ToSharedRef());
+						  CurrentFile->SetImporter(this);
+						  CurrentLibraryFileKey.Empty();
+						  UE_LOG_Figma2UMG(Display, TEXT("Library file %s downloaded."),
+										   *CurrentFile->GetFileName());
+						  DownloadNextDependency();
+					  }
+					  else
+					  {
+						  CurrentLibraryFileKey.Empty();
+						  UpdateStatus(eRequestStatus::Failed, OutFailReason.ToString());
+					  }
+				  });
 	}
 }
 
-void UFigmaImporter::OnFigmaFileRequestReceived(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+void UFigmaImporter::OnFigmaFileRequestReceived(FHttpRequestPtr HttpRequest,
+												FHttpResponsePtr HttpResponse,
+												bool bSucceeded)
 {
-	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_ParseFile", "Parsing Design File."));
+	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_ParseFile",
+										"Parsing Design File."));
 
-	TSharedPtr<FJsonObject> JsonObj = ParseRequestReceived(TEXT("[Figma file request] "), HttpResponse);
+	TSharedPtr<FJsonObject> JsonObj =
+		ParseRequestReceived(TEXT("[Figma file request] "), HttpResponse);
 	if (JsonObj.IsValid())
 	{
 		static FString NameStr("Name");
-		const FString FigmaFilename = UPackageTools::SanitizePackageName(JsonObj->GetStringField(NameStr));
-		const FString FullFilename = FFigma2UMGModule::GetDownloadFilePath(FPaths::Combine(FigmaFilename, FigmaFilename + TEXT(".figma")));
+		const FString FigmaFilename =
+			UPackageTools::SanitizePackageName(JsonObj->GetStringField(NameStr));
+		const FString FullFilename = FFigma2UMGModule::GetDownloadFilePath(
+			FPaths::Combine(FigmaFilename, FigmaFilename + TEXT(".figma")));
 		const FString RawText = HttpResponse->GetContentAsString();
 		FFileHelper::SaveStringToFile(RawText, *FullFilename);
 
-		File = NewObject<UFigmaFile>();
+		AsyncTask(ENamedThreads::GameThread, [this, JsonObj]()
+				  {
+					  File = NewObject<UFigmaFile>();
 
-		AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this, JsonObj]()
-			{
-				FText OutFailReason;
-				if (FigmaJsonImport::JsonObjectToUStruct(JsonObj.ToSharedRef(), File->StaticClass(), File, &OutFailReason))
-				{
-					UE_LOG_Figma2UMG(Display, TEXT("Post-Serialize"));
-					MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PostSerializeFile", "PostSerialize Design File."));
-					File->PostSerialize(FileKey, ContentRootFolder, JsonObj.ToSharedRef(), PrimaryImportNodeId, AdditionalImportNodeIds);
-					File->SetImporter(this);
+					  FText OutFailReason;
+					  if (FigmaJsonImport::JsonObjectToUStruct(JsonObj.ToSharedRef(),
+															   File->StaticClass(), File,
+															   &OutFailReason))
+					  {
+						  UE_LOG_Figma2UMG(Display, TEXT("Post-Serialize"));
+						  MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG",
+															  "Figma2UMG_PostSerializeFile",
+															  "PostSerialize Design File."));
+						  File->PostSerialize(FileKey, ContentRootFolder, JsonObj.ToSharedRef(),
+											  PrimaryImportNodeId, AdditionalImportNodeIds);
+						  File->SetImporter(this);
 
-					FixReferences();
-				}
-				else
-				{
-					UpdateStatus(eRequestStatus::Failed, OutFailReason.ToString());
-				}
-			});
+						  FixReferences();
+					  }
+					  else
+					  {
+						  UpdateStatus(eRequestStatus::Failed, OutFailReason.ToString());
+					  }
+				  });
 	}
 }
 
-void UFigmaImporter::FixReferences()
-{
-	AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]()
-		{
-			MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_FixRefs", "Fixing component references."));
-			if (UsePrototypeFlow)
-			{
-				File->PrepareForFlow();
-			}
+void UFigmaImporter::FixReferences() {
+  AsyncTask(ENamedThreads::GameThread, [this]() {
+    MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_FixRefs",
+                                        "Fixing component references."));
+    if (UsePrototypeFlow) {
+      File->PrepareForFlow();
+    }
 
-			for (TPair<FString, TObjectPtr<UFigmaFile>> LibPair : LibraryFileKeys)
-			{
-				LibPair.Value->FixComponentSetRef();
-			}
+    for (TPair<FString, TObjectPtr<UFigmaFile>> LibPair : LibraryFileKeys) {
+      LibPair.Value->FixComponentSetRef();
+    }
 
-			File->FixComponentSetRef();
+    File->FixComponentSetRef();
 
-			if (LibraryFileKeys.Num() > 0)
-			{
-				UE_LOG_Figma2UMG(Display, TEXT("Fix Remote References"));
-				File->FixRemoteReferences(LibraryFileKeys);
-			}
+    if (LibraryFileKeys.Num() > 0) {
+      UE_LOG_Figma2UMG(Display, TEXT("Fix Remote References"));
+      File->FixRemoteReferences(LibraryFileKeys);
+    }
 
-			MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_FixRefs", "Creating Builders."));
-			File->CreateAssetBuilders(OnBuildersCreatedDelegate, AssetBuilders);
-		});
+    MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_FixRefs",
+                                        "Creating Builders."));
+    File->CreateAssetBuilders(OnBuildersCreatedDelegate, AssetBuilders);
+  });
 }
 
 void UFigmaImporter::OnBuildersCreated(bool Succeeded)
@@ -450,65 +497,84 @@ void UFigmaImporter::OnBuildersCreated(bool Succeeded)
 
 void UFigmaImporter::BuildImageDependency()
 {
-	AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]()
-		{
-			MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_Image", "Building Image dependency."));
-			UE_LOG_Figma2UMG(Display, TEXT("[Figma images Request]"));
-			RequestedImages.Reset();
+	AsyncTask(ENamedThreads::GameThread, [this]()
+			  {
+				  MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_Image",
+													  "Building Image dependency."));
+				  UE_LOG_Figma2UMG(Display, TEXT("[Figma images Request]"));
+				  RequestedImages.Reset();
 
-			RequestedImages.AddFile(FileKey);
-			for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
-			{
-				if (UTexture2DBuilder* Texture2DBuilder = Cast<UTexture2DBuilder>(AssetBuilder.GetObject()))
-				{
-					Texture2DBuilder->AddImageRequest(RequestedImages);
-				}
-			}
+				  RequestedImages.AddFile(FileKey);
+				  for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
+				  {
+					  if (UTexture2DBuilder* Texture2DBuilder =
+							  Cast<UTexture2DBuilder>(AssetBuilder.GetObject()))
+					  {
+						  Texture2DBuilder->AddImageRequest(RequestedImages);
+					  }
+				  }
 
-			MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_Image", "Request Image's URLs."));
-			RequestImageRefURLs();
-		});
+				  MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_Image",
+													  "Request Image's URLs."));
+				  RequestImageRefURLs();
+			  });
 }
 
 void UFigmaImporter::RequestImageRefURLs()
 {
 	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			if(FImagePerFileRequests* CurrentFile = RequestedImages.GetNextImageRefFile())
-			{
-				CurrentFile->ImageRefRequested = true;
-				if (CreateRequest(FIGMA_ENDPOINT_FILES, CurrentFile->FileKey, FString(), "/images", OnVaRestImagesRefRequestDelegate))
-				{
-					UE_LOG_Figma2UMG(Display, TEXT("[Figma images Request] Requesting imageRefs for file %s from Figma API."), *CurrentFile->FileKey);
-				}
-			}
-			else
-			{
-				TotalImageURLRequestedCount = RequestedImages.GetRequestTotalCount();
-				SubProgressImageURLRequest.Start(TotalImageURLRequestedCount, NSLOCTEXT("Figma2UMG", "Figma2UMG_RequestImageURL", "Requesting Image's URL from FIGMA"));
-				AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]()
-					{
-						RequestImageURLs();
-					});
-			}
-		});
+			  {
+				  if (FImagePerFileRequests* CurrentFile =
+						  RequestedImages.GetNextImageRefFile())
+				  {
+					  CurrentFile->ImageRefRequested = true;
+					  if (CreateRequest(FIGMA_ENDPOINT_FILES, CurrentFile->FileKey, FString(),
+										"/images", OnVaRestImagesRefRequestDelegate))
+					  {
+						  UE_LOG_Figma2UMG(Display,
+										   TEXT("[Figma images Request] Requesting imageRefs for "
+												"file %s from Figma API."),
+										   *CurrentFile->FileKey);
+					  }
+				  }
+				  else
+				  {
+					  TotalImageURLRequestedCount = RequestedImages.GetRequestTotalCount();
+					  SubProgressImageURLRequest.Start(
+						  TotalImageURLRequestedCount,
+						  NSLOCTEXT("Figma2UMG", "Figma2UMG_RequestImageURL",
+									"Requesting Image's URL from FIGMA"));
+					  RequestImageURLs();
+				  }
+			  });
 }
 
-void UFigmaImporter::OnFigmaImagesRefURLReceived(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+void UFigmaImporter::OnFigmaImagesRefURLReceived(FHttpRequestPtr HttpRequest,
+												 FHttpResponsePtr HttpResponse,
+												 bool bSucceeded)
 {
-	TSharedPtr<FJsonObject> JsonObj = ParseRequestReceived(TEXT("[Figma images request] "), HttpResponse);
+	TSharedPtr<FJsonObject> JsonObj =
+		ParseRequestReceived(TEXT("[Figma images request] "), HttpResponse);
 	if (JsonObj.IsValid())
 	{
 		FText OutFailReason;
 		FImagesRefRequestResult ImagesRefRequestResult;
-		if (FigmaJsonImport::JsonObjectToUStruct(JsonObj.ToSharedRef(), &ImagesRefRequestResult, &OutFailReason))
+		if (FigmaJsonImport::JsonObjectToUStruct(
+				JsonObj.ToSharedRef(), &ImagesRefRequestResult, &OutFailReason))
 		{
-			UE_LOG_Figma2UMG(Display, TEXT("[Figma images Request] %u images received from Figma API."), ImagesRefRequestResult.Meta.Images.Num());
-			for (TPair<FString, FString> Element : ImagesRefRequestResult.Meta.Images)
+			UE_LOG_Figma2UMG(
+				Display,
+				TEXT("[Figma images Request] %u images received from Figma API."),
+				ImagesRefRequestResult.Meta.Images.Num());
+			for (TPair<FString, FString> Element :
+				 ImagesRefRequestResult.Meta.Images)
 			{
 				if (Element.Value.IsEmpty())
 				{
-					UE_LOG_Figma2UMG(Warning, TEXT("[Figma images Request] Coudn't get URL for Id %s."), *Element.Key);
+					UE_LOG_Figma2UMG(
+						Warning,
+						TEXT("[Figma images Request] Coudn't get URL for Id %s."),
+						*Element.Key);
 					continue;
 				}
 				RequestedImages.SetURLFromImageRef(Element.Key, Element.Value);
@@ -526,82 +592,102 @@ void UFigmaImporter::OnFigmaImagesRefURLReceived(FHttpRequestPtr HttpRequest, FH
 void UFigmaImporter::RequestImageURLs()
 {
 	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			if (FImagePerFileRequests* Requests = RequestedImages.GetRequestsPendingURL())
-			{
-				FString ImageIdsFormated;
-				FString ImageRef;
-				int RequestCount = 0;
-				for (int i = 0; i < Requests->Requests.Num() && RequestCount < MaxURLImageRequest; i++)
-				{
-					if(!Requests->Requests[i].URL.IsEmpty())
-						continue;
+			  {
+				  if (FImagePerFileRequests* Requests =
+						  RequestedImages.GetRequestsPendingURL())
+				  {
+					  FString ImageIdsFormated;
+					  FString ImageRef;
+					  int RequestCount = 0;
+					  for (int i = 0;
+						   i < Requests->Requests.Num() && RequestCount < MaxURLImageRequest;
+						   i++)
+					  {
+						  if (!Requests->Requests[i].URL.IsEmpty())
+							  continue;
 
-					if (Requests->Requests[i].GetRequestedURL())
-						continue;
+						  if (Requests->Requests[i].GetRequestedURL())
+							  continue;
 
-					if(ImageIdsFormated.IsEmpty())
-					{
-						ImageIdsFormated += Requests->Requests[i].Id;
-					}
-					else
-					{
-						ImageIdsFormated += "," + Requests->Requests[i].Id;
-					}
-					Requests->Requests[i].SetRequestedURL();
-					RequestCount++;
-				}
+						  if (ImageIdsFormated.IsEmpty())
+						  {
+							  ImageIdsFormated += Requests->Requests[i].Id;
+						  }
+						  else
+						  {
+							  ImageIdsFormated += "," + Requests->Requests[i].Id;
+						  }
+						  Requests->Requests[i].SetRequestedURL();
+						  RequestCount++;
+					  }
 
-				if (!ImageIdsFormated.IsEmpty())
-				{
-					TArray<FStringFormatArg> args;
-					args.Add(FMath::Min(ImageURLRequestedCount + RequestCount, TotalImageURLRequestedCount));
-					args.Add(TotalImageURLRequestedCount);
-					FString msg = FString::Format(TEXT("Requesting Image's URL {0} of {1}"), args);
-					SubProgressImageURLRequest.Update(RequestCount, FText::FromString(msg));
+					  if (!ImageIdsFormated.IsEmpty())
+					  {
+						  TArray<FStringFormatArg> args;
+						  args.Add(FMath::Min(ImageURLRequestedCount + RequestCount,
+											  TotalImageURLRequestedCount));
+						  args.Add(TotalImageURLRequestedCount);
+						  FString msg =
+							  FString::Format(TEXT("Requesting Image's URL {0} of {1}"), args);
+						  SubProgressImageURLRequest.Update(RequestCount, FText::FromString(msg));
 
-					ImageIdsFormated += "&scale=" + FString::SanitizeFloat(NodeImageScale, 0);
-					UE_LOG_Figma2UMG(Display, TEXT("[Figma images Request] Requesting %u images in file %s from Figma API."), RequestCount, *Requests->FileKey);
-					CreateRequest(FIGMA_ENDPOINT_IMAGES, Requests->FileKey, ImageIdsFormated, OnVaRestImagesRequestDelegate);
-					return;
-				}
-			}
+						  ImageIdsFormated +=
+							  "&scale=" + FString::SanitizeFloat(NodeImageScale, 0);
+						  UE_LOG_Figma2UMG(Display,
+										   TEXT("[Figma images Request] Requesting %u images in "
+												"file %s from Figma API."),
+										   RequestCount, *Requests->FileKey);
+						  CreateRequest(FIGMA_ENDPOINT_IMAGES, Requests->FileKey,
+										ImageIdsFormated, OnVaRestImagesRequestDelegate);
+						  return;
+					  }
+				  }
 
-			SubProgressImageURLRequest.Finish();
-			SubProgressImageDownload.Start(100, NSLOCTEXT("Figma2UMG", "Figma2UMG_ImportProgress", "Importing from FIGMA"));
+				  SubProgressImageURLRequest.Finish();
+				  SubProgressImageDownload.Start(100, NSLOCTEXT("Figma2UMG",
+																"Figma2UMG_ImportProgress",
+																"Importing from FIGMA"));
 
-			MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_Image", "Downloading Images."));
+				  MainProgress.Update(
+					  1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_Image", "Downloading Images."));
 
-			AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]()
-				{
-					DownloadNextImage();
-				});
-		});
+				  DownloadNextImage();
+			  });
 }
 
-void UFigmaImporter::OnFigmaImagesURLReceived(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+void UFigmaImporter::OnFigmaImagesURLReceived(FHttpRequestPtr HttpRequest,
+											  FHttpResponsePtr HttpResponse,
+											  bool bSucceeded)
 {
-	TSharedPtr<FJsonObject> JsonObj = ParseRequestReceived(TEXT("[Figma images request] "), HttpResponse);
+	TSharedPtr<FJsonObject> JsonObj =
+		ParseRequestReceived(TEXT("[Figma images request] "), HttpResponse);
 	if (JsonObj.IsValid())
 	{
 		FText OutFailReason;
 		TryFixNullImagesURLResponse(JsonObj);
 
-		if (FigmaJsonImport::JsonObjectToUStruct(JsonObj.ToSharedRef(), &ImagesRequestResult, &OutFailReason))
+		if (FigmaJsonImport::JsonObjectToUStruct(
+				JsonObj.ToSharedRef(), &ImagesRequestResult, &OutFailReason))
 		{
 			int ValidURL = 0;
 			for (TPair<FString, FString> Element : ImagesRequestResult.Images)
 			{
-				if(Element.Value.IsEmpty() || Element.Value.Equals("INVALID"))
+				if (Element.Value.IsEmpty() || Element.Value.Equals("INVALID"))
 				{
-					UE_LOG_Figma2UMG(Warning, TEXT("[Figma images Request] Coudn't get URL for Id %s."), *Element.Key);
+					UE_LOG_Figma2UMG(
+						Warning,
+						TEXT("[Figma images Request] Coudn't get URL for Id %s."),
+						*Element.Key);
 					continue;
 				}
 				RequestedImages.SetURL(Element.Key, Element.Value);
 				ValidURL++;
 			}
 			ImageURLRequestedCount += ImagesRequestResult.Images.Num();
-			UE_LOG_Figma2UMG(Display, TEXT("[Figma images Request] %u/%u images received from Figma API."), ValidURL, ImagesRequestResult.Images.Num());
+			UE_LOG_Figma2UMG(
+				Display,
+				TEXT("[Figma images Request] %u/%u images received from Figma API."),
+				ValidURL, ImagesRequestResult.Images.Num());
 
 			ImageDownloadCount = 0;
 			ImageDownloadCountTotal = RequestedImages.GetAllRequestsTotalCount();
@@ -614,7 +700,8 @@ void UFigmaImporter::OnFigmaImagesURLReceived(FHttpRequestPtr HttpRequest, FHttp
 	}
 }
 
-void UFigmaImporter::TryFixNullImagesURLResponse(TSharedPtr<FJsonObject> JsonObj)
+void UFigmaImporter::TryFixNullImagesURLResponse(
+	TSharedPtr<FJsonObject> JsonObj)
 {
 	TSharedPtr<FJsonValue> Field = JsonObj->TryGetField(TEXT("images"));
 	if (!Field)
@@ -622,11 +709,11 @@ void UFigmaImporter::TryFixNullImagesURLResponse(TSharedPtr<FJsonObject> JsonObj
 
 	if (Field->Type == EJson::Array)
 	{
-		
 	}
 	else if (Field->Type == EJson::Object)
 	{
-		TSharedPtr<FJsonValueString> empty = MakeShared<FJsonValueString>(FString("INVALID"));
+		TSharedPtr<FJsonValueString> empty =
+			MakeShared<FJsonValueString>(FString("INVALID"));
 		TSharedPtr<FJsonObject> ObjectValue = Field->AsObject();
 		for (TTuple<FString, TSharedPtr<FJsonValue>>& Entry : ObjectValue->Values)
 		{
@@ -636,44 +723,45 @@ void UFigmaImporter::TryFixNullImagesURLResponse(TSharedPtr<FJsonObject> JsonObj
 			}
 		}
 	}
-
 }
 
 void UFigmaImporter::DownloadNextImage()
 {
 	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			FImageRequest* ImageRequest = RequestedImages.GetNextToDownload();
-			if (ImageRequest && ImageRequest->GetRequestedURL() && !ImageRequest->URL.IsEmpty())
-			{
-				ImageDownloadCount++;
+			  {
+				  FImageRequest* ImageRequest = RequestedImages.GetNextToDownload();
+				  if (ImageRequest && ImageRequest->GetRequestedURL() &&
+					  !ImageRequest->URL.IsEmpty())
+				  {
+					  ImageDownloadCount++;
 
-				TArray<FStringFormatArg> args;
-				args.Add(ImageDownloadCount);
-				args.Add(static_cast<int>(ImageDownloadCountTotal));
-				FString msg = FString::Format(TEXT("Downloading Image {0} of {1}"), args);
+					  TArray<FStringFormatArg> args;
+					  args.Add(ImageDownloadCount);
+					  args.Add(static_cast<int>(ImageDownloadCountTotal));
+					  FString msg = FString::Format(TEXT("Downloading Image {0} of {1}"), args);
 
-				SubProgressImageDownload.Update(100.f / ImageDownloadCountTotal, FText::FromString(msg));
+					  SubProgressImageDownload.Update(100.f / ImageDownloadCountTotal,
+													  FText::FromString(msg));
 
-				UE_LOG_Figma2UMG(Display, TEXT("Downloading image (%i/%i) %s at %s."), ImageDownloadCount, static_cast<int>(ImageDownloadCountTotal), *ImageRequest->ImageName, *ImageRequest->URL);
-				ImageRequest->StartDownload(OnImageDownloadRequestCompleted);
-			}
-			else
-			{
-				AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]()
-					{
-						SubProgressImageDownload.Finish();
-						if (DownloadFontsFromGoogle)
-						{
-							FetchGoogleFontsList();
-						}
-						else
-						{
-							LoadOrCreateAssets();
-						}
-					});
-			}
-		});
+					  UE_LOG_Figma2UMG(Display, TEXT("Downloading image (%i/%i) %s at %s."),
+									   ImageDownloadCount,
+									   static_cast<int>(ImageDownloadCountTotal),
+									   *ImageRequest->ImageName, *ImageRequest->URL);
+					  ImageRequest->StartDownload(OnImageDownloadRequestCompleted);
+				  }
+				  else
+				  {
+					  SubProgressImageDownload.Finish();
+					  if (DownloadFontsFromGoogle)
+					  {
+						  FetchGoogleFontsList();
+					  }
+					  else
+					  {
+						  LoadOrCreateAssets();
+					  }
+				  }
+			  });
 }
 
 void UFigmaImporter::HandleImageDownload(bool Succeeded)
@@ -691,50 +779,68 @@ void UFigmaImporter::HandleImageDownload(bool Succeeded)
 void UFigmaImporter::FetchGoogleFontsList()
 {
 	AsyncTask(ENamedThreads::GameThread, [this]()
-	{
-		MainProgress.Update(1, NSLOCTEXT("Figma2UMG", "Figma2UMG_GFontRequest", "Managing Fonts."));
+			  {
+				  MainProgress.Update(
+					  1, NSLOCTEXT("Figma2UMG", "Figma2UMG_GFontRequest", "Managing Fonts."));
 
-		SubProgressGFontDownload.Start(100, NSLOCTEXT("Figma2UMG", "Figma2UMG_GFontRequest", "Requesting Font list from Google"));
-		SubProgressGFontDownload.Update(5, NSLOCTEXT("Figma2UMG", "Figma2UMG_GFontRequest", "Requesting Font list from Google."));
+				  SubProgressGFontDownload.Start(
+					  100, NSLOCTEXT("Figma2UMG", "Figma2UMG_GFontRequest",
+									 "Requesting Font list from Google"));
+				  SubProgressGFontDownload.Update(
+					  5, NSLOCTEXT("Figma2UMG", "Figma2UMG_GFontRequest",
+								   "Requesting Font list from Google."));
 
+				  const UFigmaImportSubsystem* Importer =
+					  GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
+				  if (Importer && !Importer->HasGoogleFontsInfo())
+				  {
+					  if (GFontsAPIKey.IsEmpty())
+					  {
+						  UE_LOG_Figma2UMG(
+							  Warning,
+							  TEXT("[UFigmaImporter] Google Fonts download is enabled, but no "
+								   "API key was provided. Falling back to default/local fonts."));
+						  LoadOrCreateAssets();
+						  return;
+					  }
 
-		const UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
-		if (Importer && !Importer->HasGoogleFontsInfo())
-		{
-				if (GFontsAPIKey.IsEmpty())
-				{
-					UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaImporter] Google Fonts download is enabled, but no API key was provided. Falling back to default/local fonts."));
-					AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() { LoadOrCreateAssets(); });
-					return;
-				}
-
-				TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
-				HttpRequest->OnProcessRequestComplete().BindUObject(this, &UFigmaImporter::OnFetchGoogleFontsResponse);
-				FString URL = "https://www.googleapis.com/webfonts/v1/webfonts?key=" + GFontsAPIKey;
-				HttpRequest->SetURL(URL);
-				HttpRequest->SetVerb(TEXT("GET"));
-				HttpRequest->ProcessRequest();
-		}
-		else
-		{
-			AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this](){BuildFontDependency();});
-		}
-	});
+					  TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest =
+						  FHttpModule::Get().CreateRequest();
+					  HttpRequest->OnProcessRequestComplete().BindUObject(
+						  this, &UFigmaImporter::OnFetchGoogleFontsResponse);
+					  FString URL =
+						  "https://www.googleapis.com/webfonts/v1/webfonts?key=" + GFontsAPIKey;
+					  HttpRequest->SetURL(URL);
+					  HttpRequest->SetVerb(TEXT("GET"));
+					  HttpRequest->ProcessRequest();
+				  }
+				  else
+				  {
+					  BuildFontDependency();
+				  }
+			  });
 }
 
-void UFigmaImporter::OnFetchGoogleFontsResponse(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bWasSuccessful)
+void UFigmaImporter::OnFetchGoogleFontsResponse(FHttpRequestPtr HttpRequest,
+												FHttpResponsePtr HttpResponse,
+												bool bWasSuccessful)
 {
-	UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
-	if (Importer && bWasSuccessful && HttpResponse.IsValid() && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
+	UFigmaImportSubsystem* Importer =
+		GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
+	if (Importer && bWasSuccessful && HttpResponse.IsValid() &&
+		HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
 	{
-		const FString FullFilename = FFigma2UMGModule::GetDownloadFilePath(TEXT("Fonts/GFontList.json"));
+		const FString FullFilename =
+			FFigma2UMGModule::GetDownloadFilePath(TEXT("Fonts/GFontList.json"));
 		FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *FullFilename);
 
 		TSharedPtr<FJsonObject> JsonObject;
-		TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
+		TSharedRef<TJsonReader<>> Reader =
+			TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
 
 		TArray<FGFontFamilyInfo>& GoogleFontsInfo = Importer->GetGoogleFontsInfo();
-		if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+		if (FJsonSerializer::Deserialize(Reader, JsonObject) &&
+			JsonObject.IsValid())
 		{
 			const TArray<TSharedPtr<FJsonValue>>* Items;
 			if (JsonObject->TryGetArrayField(TEXT("items"), Items))
@@ -744,16 +850,20 @@ void UFigmaImporter::OnFetchGoogleFontsResponse(FHttpRequestPtr HttpRequest, FHt
 					const TSharedPtr<FJsonObject> FontObject = Item->AsObject();
 					FGFontFamilyInfo& FontFamilyInfo = GoogleFontsInfo.Emplace_GetRef();
 
-
 					FText OutFailReason;
-					if (FigmaJsonImport::JsonObjectToUStruct(FontObject.ToSharedRef(), &FontFamilyInfo, &OutFailReason))
+					if (FigmaJsonImport::JsonObjectToUStruct(
+							FontObject.ToSharedRef(), &FontFamilyInfo, &OutFailReason))
 					{
-						FontFamilyInfo.Family = UPackageTools::SanitizePackageName(FontFamilyInfo.Family.Replace(TEXT(" "), TEXT("")));
+						FontFamilyInfo.Family = UPackageTools::SanitizePackageName(
+							FontFamilyInfo.Family.Replace(TEXT(" "), TEXT("")));
 					}
 					else
 					{
 						FString Family = FontObject->GetStringField(TEXT("family"));
-						UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaImporter] Failed to parse Google Font Family %s"), *Family);
+						UE_LOG_Figma2UMG(
+							Warning,
+							TEXT("[UFigmaImporter] Failed to parse Google Font Family %s"),
+							*Family);
 					}
 				}
 			}
@@ -761,47 +871,67 @@ void UFigmaImporter::OnFetchGoogleFontsResponse(FHttpRequestPtr HttpRequest, FHt
 
 		if (!GoogleFontsInfo.IsEmpty())
 		{
-			AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {BuildFontDependency(); });
+			AsyncTask(ENamedThreads::GameThread, [this]()
+					  {
+						  BuildFontDependency();
+					  });
 		}
 		else
 		{
-			AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {LoadOrCreateAssets(); });
+			AsyncTask(ENamedThreads::GameThread, [this]()
+					  {
+						  LoadOrCreateAssets();
+					  });
 		}
 	}
 	else
 	{
 		if (HttpResponse.IsValid())
 		{
-			UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaImporter] Failed to fetch the Google Fonts list (HTTP %d). Falling back to default/local fonts."), HttpResponse->GetResponseCode());
+			UE_LOG_Figma2UMG(
+				Warning,
+				TEXT("[UFigmaImporter] Failed to fetch the Google Fonts list (HTTP "
+					 "%d). Falling back to default/local fonts."),
+				HttpResponse->GetResponseCode());
 		}
 		else
 		{
-			UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaImporter] Failed to fetch the Google Fonts list. No HTTP response was returned. Falling back to default/local fonts."));
+			UE_LOG_Figma2UMG(
+				Warning,
+				TEXT(
+					"[UFigmaImporter] Failed to fetch the Google Fonts list. No HTTP "
+					"response was returned. Falling back to default/local fonts."));
 		}
 
-		AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {LoadOrCreateAssets(); });
+		AsyncTask(ENamedThreads::GameThread, [this]()
+				  {
+					  LoadOrCreateAssets();
+				  });
 	}
 }
 
 void UFigmaImporter::BuildFontDependency()
 {
 	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			SubProgressGFontDownload.Update(5, NSLOCTEXT("Figma2UMG", "Figma2UMG_GFontRequest", "Requesting Font list from Google."));
-			UE_LOG_Figma2UMG(Display, TEXT("[Figma GFonts Request]"));
-			RequestedFonts.Reset();
+			  {
+				  SubProgressGFontDownload.Update(
+					  5, NSLOCTEXT("Figma2UMG", "Figma2UMG_GFontRequest",
+								   "Requesting Font list from Google."));
+				  UE_LOG_Figma2UMG(Display, TEXT("[Figma GFonts Request]"));
+				  RequestedFonts.Reset();
 
-			for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
-			{
-				if (UFontBuilder* FontBuilder = Cast<UFontBuilder>(AssetBuilder.GetObject()))
-				{
-					FontBuilder->AddFontRequest(RequestedFonts);
-				}
-			}
+				  for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
+				  {
+					  if (UFontBuilder* FontBuilder =
+							  Cast<UFontBuilder>(AssetBuilder.GetObject()))
+					  {
+						  FontBuilder->AddFontRequest(RequestedFonts);
+					  }
+				  }
 
-			FontDownloadCount = 0;
-			DownloadNextFont();
-		});
+				  FontDownloadCount = 0;
+				  DownloadNextFont();
+			  });
 }
 
 void UFigmaImporter::DownloadNextFont()
@@ -817,9 +947,13 @@ void UFigmaImporter::DownloadNextFont()
 		args.Add(static_cast<int>(FontCountTotal));
 		FString msg = FString::Format(TEXT("Downloading font {0} of {1}"), args);
 
-		SubProgressGFontDownload.Update(80.f / FontCountTotal, FText::FromString(msg));
+		SubProgressGFontDownload.Update(80.f / FontCountTotal,
+										FText::FromString(msg));
 
-		UE_LOG_Figma2UMG(Display, TEXT("Downloading font (%i/%i) %s(%s) at %s."), FontDownloadCount, static_cast<int>(FontCountTotal), *FontRequest->FamilyInfo->Family, *FontRequest->Variant, *FontRequest->GetURL());
+		UE_LOG_Figma2UMG(Display, TEXT("Downloading font (%i/%i) %s(%s) at %s."),
+						 FontDownloadCount, static_cast<int>(FontCountTotal),
+						 *FontRequest->FamilyInfo->Family, *FontRequest->Variant,
+						 *FontRequest->GetURL());
 		FontRequest->StartDownload(OnFontDownloadRequestCompleted);
 	}
 	else
@@ -836,29 +970,36 @@ void UFigmaImporter::HandleFontDownload(bool Succeeded)
 	}
 	else
 	{
-		UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaImporter] Failed to download a Google Font asset. Falling back to default/local fonts for the remaining unresolved families."));
-		AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {LoadOrCreateAssets(); });
+		UE_LOG_Figma2UMG(Warning,
+						 TEXT("[UFigmaImporter] Failed to download a Google Font "
+							  "asset. Falling back to default/local fonts for the "
+							  "remaining unresolved families."));
+		AsyncTask(ENamedThreads::GameThread, [this]()
+				  {
+					  LoadOrCreateAssets();
+				  });
 	}
 }
 
 void UFigmaImporter::LoadOrCreateAssets()
 {
-	MainProgress.Update(1, NSLOCTEXT("Figma2UMG", "Figma2UMG_LoadOrCreateAssets", "Loading or create UAssets"));
+	MainProgress.Update(1, NSLOCTEXT("Figma2UMG", "Figma2UMG_LoadOrCreateAssets",
+									 "Loading or create UAssets"));
 	UE_LOG_Figma2UMG(Display, TEXT("Creating UAssets"));
 
 	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			SubProgressGFontDownload.Finish();
-			SubProgressImageDownload.Finish();
+			  {
+				  SubProgressGFontDownload.Finish();
+				  SubProgressImageDownload.Finish();
 
-			FGCScopeGuard GCScopeGuard;
-			for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
-			{
-				AssetBuilder->LoadOrCreateAssets();
-			}
+				  FGCScopeGuard GCScopeGuard;
+				  for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
+				  {
+					  AssetBuilder->LoadOrCreateAssets();
+				  }
 
-			AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {OnAssetsCreated(true); });
-		});
+				  OnAssetsCreated(true);
+			  });
 }
 
 void UFigmaImporter::OnAssetsCreated(bool Succeeded)
@@ -875,138 +1016,157 @@ void UFigmaImporter::OnAssetsCreated(bool Succeeded)
 
 void UFigmaImporter::CreateWidgetBuilders()
 {
-	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_CreateWidgetBuilders", "Creating UWidget Builders"));
+	MainProgress.Update(1.0f,
+						NSLOCTEXT("Figma2UMG", "Figma2UMG_CreateWidgetBuilders",
+								  "Creating UWidget Builders"));
 
 	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			FGCScopeGuard GCScopeGuard;
-			for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
-			{
-				if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder = Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
-				{
-					BlueprintBuilder->CreateWidgetBuilders();
-				}
-			}
+			  {
+				  FGCScopeGuard GCScopeGuard;
+				  for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
+				  {
+					  if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder =
+							  Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
+					  {
+						  BlueprintBuilder->CreateWidgetBuilders();
+					  }
+				  }
 
-			AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {PatchPreInsertWidget(); });
-		});
+				  PatchPreInsertWidget();
+			  });
 }
 
 void UFigmaImporter::PatchPreInsertWidget()
 {
-	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PatchPreInsertWidget", "Patch PreInsert Widgets"));
+	MainProgress.Update(1.0f,
+						NSLOCTEXT("Figma2UMG", "Figma2UMG_PatchPreInsertWidget",
+								  "Patch PreInsert Widgets"));
 
 	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			FGCScopeGuard GCScopeGuard;
-			for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
-			{
-				if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder = Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
-				{
-					if (BlueprintBuilder->IsListEntryWidgetBlueprintBuilder())
-					{
-						BlueprintBuilder->PatchAndInsertWidgets();
-						BlueprintBuilder->CompileBP(EBlueprintCompileOptions::None);
-					}
-				}
-			}
+			  {
+				  FGCScopeGuard GCScopeGuard;
+				  for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
+				  {
+					  if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder =
+							  Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
+					  {
+						  if (BlueprintBuilder->IsListEntryWidgetBlueprintBuilder())
+						  {
+							  BlueprintBuilder->PatchAndInsertWidgets();
+							  BlueprintBuilder->CompileBP(EBlueprintCompileOptions::None);
+						  }
+					  }
+				  }
 
-			for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
-			{
-				if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder = Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
-				{
-					if (!BlueprintBuilder->IsListEntryWidgetBlueprintBuilder())
-					{
-						BlueprintBuilder->PatchAndInsertWidgets();
-					}
-				}
-			}
+				  for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
+				  {
+					  if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder =
+							  Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
+					  {
+						  if (!BlueprintBuilder->IsListEntryWidgetBlueprintBuilder())
+						  {
+							  BlueprintBuilder->PatchAndInsertWidgets();
+						  }
+					  }
+				  }
 
-			AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {CompileBPs(true); });
-		});
+				  CompileBPs(true);
+			  });
 }
 
 void UFigmaImporter::CompileBPs(bool ProceedToNextState)
 {
-	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PatchPreInsertWidget", "Compiling BluePrints"));
+	MainProgress.Update(1.0f,
+						NSLOCTEXT("Figma2UMG", "Figma2UMG_PatchPreInsertWidget",
+								  "Compiling BluePrints"));
 
 	AsyncTask(ENamedThreads::GameThread, [this, ProceedToNextState]()
-		{
-			FGCScopeGuard GCScopeGuard;
-			for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
-			{
-				if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder = Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
-				{
-					BlueprintBuilder->CompileBP(EBlueprintCompileOptions::None);
-				}
-			}
+			  {
+				  FGCScopeGuard GCScopeGuard;
+				  for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
+				  {
+					  if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder =
+							  Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
+					  {
+						  BlueprintBuilder->CompileBP(EBlueprintCompileOptions::None);
+					  }
+				  }
 
-			if (ProceedToNextState)
-			{
-				AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {ReloadBPAssets(true); });
-			}
-		});
+				  if (ProceedToNextState)
+				  {
+					  ReloadBPAssets(true);
+				  }
+			  });
 }
 
 void UFigmaImporter::ReloadBPAssets(bool ProceedToNextState)
 {
-	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PatchPreInsertWidget", "Reloading compiled BluePrints"));
+	MainProgress.Update(1.0f,
+						NSLOCTEXT("Figma2UMG", "Figma2UMG_PatchPreInsertWidget",
+								  "Reloading compiled BluePrints"));
 
 	AsyncTask(ENamedThreads::GameThread, [this, ProceedToNextState]()
-		{
-			FGCScopeGuard GCScopeGuard;
-			for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
-			{
-				if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder = Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
-				{
-					BlueprintBuilder->LoadAssets();
-					BlueprintBuilder->ResetWidgets();
-				}
-			}
+			  {
+				  FGCScopeGuard GCScopeGuard;
+				  for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
+				  {
+					  if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder =
+							  Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
+					  {
+						  BlueprintBuilder->LoadAssets();
+						  BlueprintBuilder->ResetWidgets();
+					  }
+				  }
 
-			if (ProceedToNextState)
-			{
-				AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {PatchWidgetBinds(); });
-			}
-		});
+				  if (ProceedToNextState)
+				  {
+					  PatchWidgetBinds();
+				  }
+			  });
 }
 
 void UFigmaImporter::PatchWidgetBinds()
 {
-	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PatchPreInsertWidget", "Patching Widget Binds"));
+	MainProgress.Update(1.0f,
+						NSLOCTEXT("Figma2UMG", "Figma2UMG_PatchPreInsertWidget",
+								  "Patching Widget Binds"));
 
 	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			FGCScopeGuard GCScopeGuard;
-			for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
-			{
-				if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder = Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
-				{
-					BlueprintBuilder->PatchWidgetBinds();
-				}
-			}
+			  {
+				  FGCScopeGuard GCScopeGuard;
+				  for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
+				  {
+					  if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder =
+							  Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
+					  {
+						  BlueprintBuilder->PatchWidgetBinds();
+					  }
+				  }
 
-			AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {PatchWidgetProperties(); });
-		});
+				  PatchWidgetProperties();
+			  });
 }
 
 void UFigmaImporter::PatchWidgetProperties()
 {
-	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PatchPreInsertWidget", "Patching Widget Properties"));
+	MainProgress.Update(1.0f,
+						NSLOCTEXT("Figma2UMG", "Figma2UMG_PatchPreInsertWidget",
+								  "Patching Widget Properties"));
 
 	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			FGCScopeGuard GCScopeGuard;
-			for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
-			{
-				if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder = Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
-				{
-					BlueprintBuilder->PatchWidgetProperties();
-				}
-			}
+			  {
+				  FGCScopeGuard GCScopeGuard;
+				  for (TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
+				  {
+					  if (const TObjectPtr<UWidgetBlueprintBuilder> BlueprintBuilder =
+							  Cast<UWidgetBlueprintBuilder>(AssetBuilder.GetObject()))
+					  {
+						  BlueprintBuilder->PatchWidgetProperties();
+					  }
+				  }
 
-			AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {UFigmaImporter::OnPatchUAssets(true); });
-		});
+				  UFigmaImporter::OnPatchUAssets(true);
+			  });
 }
 
 void UFigmaImporter::OnPatchUAssets(bool Succeeded)
@@ -1017,25 +1177,25 @@ void UFigmaImporter::OnPatchUAssets(bool Succeeded)
 		return;
 	}
 
-	
 	UE_LOG_Figma2UMG(Display, TEXT("Post-patch UAssets."));
-	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PostPatch", "Post-patch UAssets"));
+	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_PostPatch",
+										"Post-patch UAssets"));
 
 	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			if(SaveAllAtEnd)
-			{
-				CompileBPs(false);
-				ReloadBPAssets(false);
-				SaveAll();
-			}
-			else
-			{
-				CompileBPs(false);
-			}
+			  {
+				  if (SaveAllAtEnd)
+				  {
+					  CompileBPs(false);
+					  ReloadBPAssets(false);
+					  SaveAll();
+				  }
+				  else
+				  {
+					  CompileBPs(false);
+				  }
 
-			AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]() {OnPostPatchUAssets(true); });
-		});
+				  OnPostPatchUAssets(true);
+			  });
 }
 
 void UFigmaImporter::SaveAll()
@@ -1055,58 +1215,65 @@ void UFigmaImporter::SaveAll()
 
 void UFigmaImporter::OnPostPatchUAssets(bool Succeeded)
 {
-	AsyncTask(ENamedThreads::GameThread, [this, Succeeded]()
-		{
-			for (const TScriptInterface<IAssetBuilder>& AssetBuilder : AssetBuilders)
-			{
-				AssetBuilder->Reset();
-			}
-			AssetBuilders.Reset();
-			if (Succeeded)
-			{
-				UpdateStatus(eRequestStatus::Succeeded, File->GetFileName() + TEXT(" was successfully imported."));
-			}
-			else
-			{
-				UpdateStatus(eRequestStatus::Failed, TEXT("Failed at Post-patch of UAssets."));
-			}
-		});
+  AsyncTask(ENamedThreads::GameThread, [this, Succeeded]() {
+    for (const TScriptInterface<IAssetBuilder> &AssetBuilder : AssetBuilders) {
+      AssetBuilder->Reset();
+    }
+    AssetBuilders.Reset();
+    if (Succeeded) {
+      UpdateStatus(eRequestStatus::Succeeded,
+                   File->GetFileName() + TEXT(" was successfully imported."));
+    } else {
+      UpdateStatus(eRequestStatus::Failed,
+                   TEXT("Failed at Post-patch of UAssets."));
+    }
+  });
 }
 
-void UFigmaImporter::ProgressBar::Start(float InAmountOfWork, const FText& InDefaultMessage)
-{
+void UFigmaImporter::ProgressBar::SetOwner(UFigmaImporter *InOwner) {
+  Owner = InOwner;
+}
+
+void UFigmaImporter::ProgressBar::Start(float InAmountOfWork,
+                                        const FText &InDefaultMessage) {
 	ProgressTask = new FScopedSlowTask(InAmountOfWork, InDefaultMessage);
 	ProgressTask->MakeDialog();
 }
 
-void UFigmaImporter::ProgressBar::Update(float ExpectedWorkThisFrame, const FText& Message)
+void UFigmaImporter::ProgressBar::Update(float ExpectedWorkThisFrame,
+										 const FText& Message)
 {
 	ProgressThisFrame += ExpectedWorkThisFrame;
 	ProgressMessage = Message;
 	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			UpdateGameThread();
-		});
+			  {
+				  UpdateGameThread();
+			  });
 }
 
 void UFigmaImporter::ProgressBar::UpdateGameThread()
 {
-	const float WorkRemaining = ProgressTask ? (ProgressTask->TotalAmountOfWork - (ProgressTask->CompletedWork + ProgressTask->CurrentFrameScope)) : 0.0f;
+	const float WorkRemaining =
+		ProgressTask
+			? (ProgressTask->TotalAmountOfWork -
+			   (ProgressTask->CompletedWork + ProgressTask->CurrentFrameScope))
+			: 0.0f;
 	if (ProgressTask)
 	{
-		ProgressTask->EnterProgressFrame(FMath::Min(ProgressThisFrame, WorkRemaining), ProgressMessage);
+		ProgressTask->EnterProgressFrame(
+			FMath::Min(ProgressThisFrame, WorkRemaining), ProgressMessage);
 		ProgressThisFrame = 0.0f;
 	}
 }
 
 void UFigmaImporter::ProgressBar::Finish()
 {
-	if(IsInGameThread())
+	if (IsInGameThread())
 	{
 		if (ProgressTask != nullptr)
 		{
 			const FSlowTaskStack& Stack = GWarn->GetScopeStack();
-			if(Stack.Last() == ProgressTask)
+			if (Stack.Last() == ProgressTask)
 			{
 				delete ProgressTask;
 				ProgressTask = nullptr;
@@ -1114,19 +1281,26 @@ void UFigmaImporter::ProgressBar::Finish()
 			}
 			else
 			{
-				AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this]()
-					{
-						Finish();
-					});
+				TWeakObjectPtr<UFigmaImporter> WeakOwner = Owner;
+				AsyncTask(ENamedThreads::GameThread, [WeakOwner, this]()
+						  {
+							  if (WeakOwner.IsValid())
+							  {
+								  Finish();
+							  }
+						  });
 			}
 		}
 	}
 	else if (ProgressTask != nullptr)
 	{
-		AsyncTask(ENamedThreads::GameThread, [this]()
-			{
-				Finish();
-			});
-		
+		TWeakObjectPtr<UFigmaImporter> WeakOwner = Owner;
+		AsyncTask(ENamedThreads::GameThread, [WeakOwner, this]()
+				  {
+					  if (WeakOwner.IsValid())
+					  {
+						  Finish();
+					  }
+				  });
 	}
 }

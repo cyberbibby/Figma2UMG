@@ -364,7 +364,7 @@ FReply SImporterWidget::DoImport()
 	{
 		UE_LOG_Figma2UMG(Display, TEXT("Connecting with Figma"));
 		ImportButton->SetEnabled(false);
-		Importer->Request(Properties, FOnFigmaImportUpdateStatusCB::CreateRaw(this, &SImporterWidget::OnRequestFinished));
+		Importer->Request(Properties, FOnFigmaImportUpdateStatusCB::CreateSP(SharedThis(this), &SImporterWidget::OnRequestFinished));
 	}
 
 	return FReply::Handled();
@@ -375,7 +375,10 @@ void SImporterWidget::OnRequestFinished(eRequestStatus Status, FString InMessage
 	bool IsError = Status == eRequestStatus::Failed;
 	if (Status == eRequestStatus::Succeeded || Status == eRequestStatus::Failed)
 	{
-		ImportButton->SetEnabled(true);
+		if (ImportButton.IsValid())
+		{
+			ImportButton->SetEnabled(true);
+		}
 		if (IsError)
 		{
 			UE_LOG_Figma2UMG(Error, TEXT("%s"), *InMessage);
