@@ -29,7 +29,7 @@ void UMaterialBuilder::LoadOrCreateAssets()
 	if (MaterialAsset == nullptr)
 	{
 		const FString PackagePath = UPackageTools::SanitizePackageName(Node->GetPackageNameForBuilder(this));
-		const FString AssetName = ObjectTools::SanitizeInvalidChars(Node->GetUAssetName(), INVALID_OBJECTNAME_CHARACTERS);
+		const FString AssetName = ObjectTools::SanitizeInvalidChars(GetMaterialAssetName(), INVALID_OBJECTNAME_CHARACTERS);
 		const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
 
 		UClass* AssetClass = UMaterial::StaticClass();
@@ -66,7 +66,7 @@ void UMaterialBuilder::LoadOrCreateAssets()
 void UMaterialBuilder::LoadAssets()
 {
 	const FString PackagePath = UPackageTools::SanitizePackageName(Node->GetPackageNameForBuilder(this));
-	const FString AssetName = ObjectTools::SanitizeInvalidChars(Node->GetUAssetName(), INVALID_OBJECTNAME_CHARACTERS);
+	const FString AssetName = ObjectTools::SanitizeInvalidChars(GetMaterialAssetName(), INVALID_OBJECTNAME_CHARACTERS);
 	const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
 
 	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
@@ -92,6 +92,22 @@ const TObjectPtr<UMaterial>& UMaterialBuilder::GetAsset() const
 void UMaterialBuilder::SetPaint(const FFigmaPaint* InPaint)
 {
 	Paint = InPaint;
+}
+
+FString UMaterialBuilder::GetMaterialAssetName() const
+{
+	if (!Node)
+	{
+		return TEXT("M_Material");
+	}
+
+	const FString BaseName = Node->GetUAssetName().TrimStartAndEnd();
+	if (BaseName.StartsWith(TEXT("M_"), ESearchCase::IgnoreCase))
+	{
+		return BaseName;
+	}
+
+	return TEXT("M_") + BaseName;
 }
 
 void UMaterialBuilder::Setup() const

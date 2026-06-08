@@ -198,6 +198,21 @@ namespace
 			}
 		}
 
+		if (Group->HasImageWidgetPrefix())
+		{
+			const FString TextureName = Group->GetImageWidgetTextureAssetName();
+			if (UTexture2D* Texture = Group->FindProjectTextureByName(TextureName))
+			{
+				ImageBuilder->SetTexture(Texture);
+				return true;
+			}
+
+			if (!TextureName.IsEmpty())
+			{
+				UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaGroup::ApplyImageSourceFromChildren] IMG_ node %s references project texture %s from its own name, but no matching UTexture2D was found."), *Group->GetNodeName(), *TextureName);
+			}
+		}
+
 		for (const FFigmaPaint& Fill : Group->Fills)
 		{
 			if (!Fill.Visible)
@@ -718,11 +733,11 @@ FString UFigmaGroup::GetPackageNameForBuilder(const TScriptInterface<IAssetBuild
 			TopParentNode = TopParentNode->GetParentNode();
 		}
 
-		FString Suffix = TEXT("Menu");
-		if (Cast<UMaterialBuilder>(InAssetBuilder.GetObject()))
-		{
-			Suffix = TEXT("Material");
-		}
+			FString Suffix = TEXT("Menu");
+			if (Cast<UMaterialBuilder>(InAssetBuilder.GetObject()))
+			{
+				Suffix = TEXT("Materials");
+			}
 		else if (Cast<UTexture2DBuilder>(InAssetBuilder.GetObject()))
 		{
 			Suffix = TEXT("Textures");

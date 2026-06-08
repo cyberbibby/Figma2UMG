@@ -185,7 +185,7 @@ FString UFigmaComponentSet::GetPackageNameForBuilder(const TScriptInterface<IAss
 	FString Suffix = "Components";
 	if (Cast<UMaterialBuilder>(InAssetBuilder.GetObject()))
 	{
-		Suffix = "Material";
+		Suffix = "Materials";
 	}
 	else if (Cast<UTexture2DBuilder>(InAssetBuilder.GetObject()))
 	{

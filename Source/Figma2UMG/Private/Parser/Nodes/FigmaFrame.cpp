@@ -33,7 +33,7 @@ FString UFigmaFrame::GetPackageNameForBuilder(const TScriptInterface<IAssetBuild
 	FString Suffix = "Menu";
 	if (Cast<UMaterialBuilder>(InAssetBuilder.GetObject()))
 	{
-		Suffix = "Material";
+		Suffix = "Materials";
 	}
 	else if (Cast<UTexture2DBuilder>(InAssetBuilder.GetObject()))
 	{

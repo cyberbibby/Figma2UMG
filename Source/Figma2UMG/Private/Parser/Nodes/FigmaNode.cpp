@@ -36,6 +36,8 @@
 #include "Parser/Nodes/Vectors/FigmaText.h"
 #include "Parser/Nodes/Vectors/FigmaVectorNode.h"
 #include "Parser/Nodes/Vectors/FigmaWashiTape.h"
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "Engine/Texture2D.h"
 #include "UObject/NameTypes.h"
 
 namespace
@@ -101,6 +103,43 @@ FString UFigmaNode::GetUAssetName() const
 bool UFigmaNode::HasImageWidgetPrefix() const
 {
 	return GetNodeName().StartsWith(ImageWidgetPrefix, ESearchCase::IgnoreCase);
+}
+
+FString UFigmaNode::GetImageWidgetTextureAssetName() const
+{
+	if (!HasImageWidgetPrefix())
+	{
+		return FString();
+	}
+
+	return GetNodeName().RightChop(FCString::Strlen(ImageWidgetPrefix)).TrimStartAndEnd();
+}
+
+UTexture2D* UFigmaNode::FindProjectTextureByName(const FString& TextureName) const
+{
+	if (TextureName.IsEmpty())
+	{
+		return nullptr;
+	}
+
+	FARFilter Filter;
+	Filter.ClassPaths.Add(UTexture2D::StaticClass()->GetClassPathName());
+	Filter.PackagePaths.Add(FName(TEXT("/Game")));
+	Filter.bRecursivePaths = true;
+
+	TArray<FAssetData> AssetDataList;
+	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	AssetRegistryModule.Get().GetAssets(Filter, AssetDataList);
+
+	for (const FAssetData& AssetData : AssetDataList)
+	{
+		if (AssetData.AssetName.ToString().Equals(TextureName, ESearchCase::CaseSensitive))
+		{
+			return Cast<UTexture2D>(AssetData.FastGetAsset(true));
+		}
+	}
+
+	return nullptr;
 }
 
 bool UFigmaNode::HasTextureOnlyImagePrefix() const

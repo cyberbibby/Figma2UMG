@@ -26,6 +26,7 @@ public:
 
 	void SetPaint(const FFigmaPaint* InPaint);
 protected:
+	FString GetMaterialAssetName() const;
 	virtual void Setup() const;
 	virtual bool HasAlpha() const;
 

@@ -59,6 +59,16 @@ TScriptInterface<IWidgetBuilder> UFigmaRectangleVector::CreateWidgetBuilders(boo
 	{
 		UImageWidgetBuilder* ImageWidgetBuilder = NewObject<UImageWidgetBuilder>();
 		ImageWidgetBuilder->SetNode(this);
+		if (HasImageWidgetPrefix())
+		{
+			const FString TextureName = GetImageWidgetTextureAssetName();
+			if (UTexture2D* Texture = FindProjectTextureByName(TextureName))
+			{
+				ImageWidgetBuilder->SetTexture(Texture);
+				return ImageWidgetBuilder;
+			}
+		}
+
 		FLinearColor SolidColor;
 		bool FoundColor = false;
 		for (const FFigmaPaint& Paint : Fills)

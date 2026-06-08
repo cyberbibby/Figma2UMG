@@ -79,7 +79,7 @@ FString UFigmaSection::GetPackageNameForBuilder(const TScriptInterface<IAssetBui
 			TopParentNode = TopParentNode->GetParentNode();
 		}
 
-		return TopParentNode->GetCurrentPackagePath() + TEXT("/") + (Cast<UTexture2DBuilder>(InAssetBuilder.GetObject()) ? TEXT("Textures") : TEXT("Material"));
+		return TopParentNode->GetCurrentPackagePath() + TEXT("/") + (Cast<UTexture2DBuilder>(InAssetBuilder.GetObject()) ? TEXT("Textures") : TEXT("Materials"));
 	}
 
 	return Super::GetPackageNameForBuilder(InAssetBuilder);

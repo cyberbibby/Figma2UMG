@@ -34,7 +34,7 @@ void UMaterialBorderBuilder::LoadOrCreateAssets()
 	if (MaterialAsset == nullptr)
 	{
 		const FString PackagePath = UPackageTools::SanitizePackageName(Node->GetPackageNameForBuilder(this));
-		const FString AssetName = "BorderMaterial";
+		const FString AssetName = TEXT("M_BorderMaterial");
 		const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
 
 		UClass* AssetClass = UMaterial::StaticClass();
@@ -66,7 +66,7 @@ void UMaterialBorderBuilder::LoadOrCreateAssets()
 	{
 		const FString PackagePath = UPackageTools::SanitizePackageName(Node->GetPackageNameForBuilder(this));
 		float StrokeWeight = GetStrokeWeight();
-		const FString AssetName = UPackageTools::SanitizePackageName("BorderMaterialInst_" + FString::SanitizeFloat(StrokeWeight, 0) + "px");
+		const FString AssetName = UPackageTools::SanitizePackageName(TEXT("MI_BorderMaterialInst_") + FString::SanitizeFloat(StrokeWeight, 0) + TEXT("px"));
 		const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
 
 		UClass* AssetClass = UMaterialInstanceConstant::StaticClass();
@@ -121,7 +121,7 @@ void UMaterialBorderBuilder::LoadAssets()
 	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	if (!Asset)
 	{
-		const FString AssetName = "BorderMaterial";
+		const FString AssetName = TEXT("M_BorderMaterial");
 		const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
 
 		const FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(FTopLevelAssetPath(*PackageName, *AssetName), FString()));

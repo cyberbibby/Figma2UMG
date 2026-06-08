@@ -87,7 +87,7 @@ FString UFigmaVectorNode::GetPackageNameForBuilder(const TScriptInterface<IAsset
 	FString Suffix = "Textures";
 	if (Cast<UMaterialBuilder>(InAssetBuilder.GetObject()))
 	{
-		Suffix = "Material";
+		Suffix = "Materials";
 	}
 
 	return TopParentNode->GetCurrentPackagePath() + TEXT("/") + Suffix;
@@ -119,6 +119,20 @@ TScriptInterface<IWidgetBuilder> UFigmaVectorNode::CreateWidgetBuilders(bool IsR
 
 	UImageWidgetBuilder* ImageWidgetBuilder = NewObject<UImageWidgetBuilder>();
 	ImageWidgetBuilder->SetNode(this);
+	if (HasImageWidgetPrefix())
+	{
+		const FString TextureName = GetImageWidgetTextureAssetName();
+		if (UTexture2D* Texture = FindProjectTextureByName(TextureName))
+		{
+			ImageWidgetBuilder->SetTexture(Texture);
+			return ImageWidgetBuilder;
+		}
+
+		if (!TextureName.IsEmpty())
+		{
+			UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaVectorNode::CreateWidgetBuilders] IMG_ node %s references project texture %s from its own name, but no matching UTexture2D was found."), *GetNodeName(), *TextureName);
+		}
+	}
 	ImageWidgetBuilder->SetTexture2DBuilder(AssetBuilder);
 
 	return ImageWidgetBuilder;
