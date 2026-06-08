@@ -59,6 +59,7 @@ public class Figma2UMG : ModuleRules
 				"Json",
 				"JsonUtilities",
 				"HTTP",
+				"Projects",
 				"AssetTools",
 				"AssetRegistry",
 				"UMGEditor",

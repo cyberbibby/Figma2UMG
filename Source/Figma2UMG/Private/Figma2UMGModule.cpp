@@ -5,6 +5,7 @@
 
 #include "Settings/Figma2UMGSettings.h"
 #include "ISettingsModule.h"
+#include "Interfaces/IPluginManager.h"
 #include "UI/Figma2UMGManager.h"
 
 #define LOCTEXT_NAMESPACE "Figma2UMGModule"
@@ -59,6 +60,23 @@ UFigma2UMGSettings* FFigma2UMGModule::GetSettings() const
 {
 	check(ModuleSettings);
 	return ModuleSettings;
+}
+
+FString FFigma2UMGModule::GetDownloadsDir()
+{
+	const TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("Figma2UMG"));
+	const FString PluginBaseDir = Plugin.IsValid()
+		? Plugin->GetBaseDir()
+		: FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("Figma2UMG"));
+
+	return FPaths::ConvertRelativePathToFull(FPaths::Combine(PluginBaseDir, TEXT("Intermediate"), TEXT("Downloads")));
+}
+
+FString FFigma2UMGModule::GetDownloadFilePath(const FString& RelativeFilePath)
+{
+	const FString FullFilePath = FPaths::Combine(GetDownloadsDir(), RelativeFilePath);
+	IFileManager::Get().MakeDirectory(*FPaths::GetPath(FullFilePath), true);
+	return FullFilePath;
 }
 
 #undef LOCTEXT_NAMESPACE

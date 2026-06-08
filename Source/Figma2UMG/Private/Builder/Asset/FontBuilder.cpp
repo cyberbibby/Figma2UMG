@@ -139,7 +139,7 @@ void UFontBuilder::AddFontRequest(FFontRequests& FontRequests)
 void UFontBuilder::OnRawFontFileReceived(const FString& Variant, const TArray<uint8>& InRawData)
 {
 	const FString VariantName = GetVariantName(Variant);
-	const FString FullFilename = FPaths::ProjectContentDir() + TEXT("../Downloads/Fonts/") + FontFamily + TEXT("/") + VariantName + TEXT(".ttf");
+	const FString FullFilename = FFigma2UMGModule::GetDownloadFilePath(FPaths::Combine(TEXT("Fonts"), FontFamily, VariantName + TEXT(".ttf")));
 	FFileHelper::SaveArrayToFile(InRawData, *FullFilename);
 
 	FacesRawData.Add(VariantName, InRawData);

@@ -345,7 +345,7 @@ void UFigmaImporter::OnFigmaLibraryFileRequestReceived(FHttpRequestPtr HttpReque
 	{
 		static FString NameStr("Name");
 		const FString FigmaFilename = UPackageTools::SanitizePackageName(JsonObj->GetStringField(NameStr));
-		const FString FullFilename = FPaths::ProjectContentDir() + TEXT("../Downloads/") + FigmaFilename + TEXT("/") + FigmaFilename + TEXT(".figma");
+		const FString FullFilename = FFigma2UMGModule::GetDownloadFilePath(FPaths::Combine(FigmaFilename, FigmaFilename + TEXT(".figma")));
 		const FString RawText = HttpResponse->GetContentAsString();
 		FFileHelper::SaveStringToFile(RawText, *FullFilename);
 
@@ -382,7 +382,7 @@ void UFigmaImporter::OnFigmaFileRequestReceived(FHttpRequestPtr HttpRequest, FHt
 	{
 		static FString NameStr("Name");
 		const FString FigmaFilename = UPackageTools::SanitizePackageName(JsonObj->GetStringField(NameStr));
-		const FString FullFilename = FPaths::ProjectContentDir() + TEXT("../Downloads/") + FigmaFilename + TEXT("/") + FigmaFilename + TEXT(".figma");
+		const FString FullFilename = FFigma2UMGModule::GetDownloadFilePath(FPaths::Combine(FigmaFilename, FigmaFilename + TEXT(".figma")));
 		const FString RawText = HttpResponse->GetContentAsString();
 		FFileHelper::SaveStringToFile(RawText, *FullFilename);
 
@@ -727,7 +727,7 @@ void UFigmaImporter::OnFetchGoogleFontsResponse(FHttpRequestPtr HttpRequest, FHt
 	UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
 	if (Importer && bWasSuccessful && HttpResponse.IsValid() && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
 	{
-		const FString FullFilename = FPaths::ProjectContentDir() + TEXT("../Downloads/Fonts/GFontList.json");
+		const FString FullFilename = FFigma2UMGModule::GetDownloadFilePath(TEXT("Fonts/GFontList.json"));
 		FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *FullFilename);
 
 		TSharedPtr<FJsonObject> JsonObject;

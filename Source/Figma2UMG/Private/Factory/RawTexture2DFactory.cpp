@@ -4,6 +4,7 @@
 
 #include "Factory/RawTexture2DFactory.h"
 
+#include "Figma2UMGModule.h"
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
 #include "ImageUtils.h"
@@ -40,7 +41,7 @@ UObject* URawTexture2DFactory::FactoryCreateNew(UClass* InClass, UObject* InPare
 	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
 	EImageFormat ImageFormat = ImageWrapperModule.DetectImageFormat(RawData.GetData(), RawData.Num());
 	const FString FileExtension = GetExtensionFromFormat(ImageFormat);
-	CurrentFilename = FPaths::ProjectContentDir() + TEXT("../Downloads/") + DownloadSubFolder + TEXT("/") + InName.ToString() + TEXT(".") + FileExtension;
+	CurrentFilename = FFigma2UMGModule::GetDownloadFilePath(FPaths::Combine(DownloadSubFolder, InName.ToString() + TEXT(".") + FileExtension));
 
 	const int64 FileSize = IFileManager::Get().FileSize(*CurrentFilename);
 	const int32 Gigabyte = 1024 * 1024 * 1024;

@@ -18,6 +18,8 @@ public:
 	virtual void ShutdownModule() override;
 
 	UFigma2UMGSettings* GetSettings() const;
+	static FString GetDownloadsDir();
+	static FString GetDownloadFilePath(const FString& RelativeFilePath);
 
 private:
 	static TSharedPtr<FFigma2UMGManager> Instance;
