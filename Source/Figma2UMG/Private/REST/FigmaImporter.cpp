@@ -28,12 +28,12 @@
 UFigmaImporter::UFigmaImporter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	OnVaRestFileRequestDelegate.BindUObject(this, &UFigmaImporter::OnFigmaFileRequestReceived);
-	OnVaRestLibraryFileRequestDelegate.BindUObject(this, &UFigmaImporter::OnFigmaLibraryFileRequestReceived);
+	OnFigmaFileRequestDelegate.BindUObject(this, &UFigmaImporter::OnFigmaFileRequestReceived);
+	OnFigmaLibraryFileRequestDelegate.BindUObject(this, &UFigmaImporter::OnFigmaLibraryFileRequestReceived);
 	OnBuildersCreatedDelegate.BindUObject(this, &UFigmaImporter::OnBuildersCreated);
 	OnAssetsCreatedDelegate.BindUObject(this, &UFigmaImporter::OnAssetsCreated);
-	OnVaRestImagesRefRequestDelegate.BindUObject(this, &UFigmaImporter::OnFigmaImagesRefURLReceived);
-	OnVaRestImagesRequestDelegate.BindUObject(this, &UFigmaImporter::OnFigmaImagesURLReceived);
+	OnFigmaImagesRefRequestDelegate.BindUObject(this, &UFigmaImporter::OnFigmaImagesRefURLReceived);
+	OnFigmaImagesRequestDelegate.BindUObject(this, &UFigmaImporter::OnFigmaImagesURLReceived);
 	OnImageDownloadRequestCompleted.BindUObject(this, &UFigmaImporter::HandleImageDownload);
 	OnFontDownloadRequestCompleted.BindUObject(this, &UFigmaImporter::HandleFontDownload);
 	OnPatchUAssetsDelegate.BindUObject(this, &UFigmaImporter::OnPatchUAssets);
@@ -103,7 +103,7 @@ void UFigmaImporter::Run()
 	if(LibraryFileKeys.IsEmpty())
 	{
 		MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_RequestFile", "Downloading Design File."));
-		if (CreateRequest(FIGMA_ENDPOINT_FILES, FileKey, Ids, OnVaRestFileRequestDelegate))
+		if (CreateRequest(FIGMA_ENDPOINT_FILES, FileKey, Ids, OnFigmaFileRequestDelegate))
 		{
 			UE_LOG_Figma2UMG(Display, TEXT("Requesting file %s from Figma API"), *FileKey);
 		}
@@ -260,17 +260,17 @@ TSharedPtr<FJsonObject> UFigmaImporter::ParseRequestReceived(FString MessagePref
 		switch (status)
 		{
 		case EHttpRequestStatus::NotStarted:
-			UE_LOG_Figma2UMG(Warning, TEXT("%s%s"), *MessagePrefix, TEXT("EVaRestRequestStatus::NotStarted."));
+			UE_LOG_Figma2UMG(Warning, TEXT("%s%s"), *MessagePrefix, TEXT("EHttpRequestStatus::NotStarted."));
 			break;
 		case EHttpRequestStatus::Processing:
-			UE_LOG_Figma2UMG(Warning, TEXT("%s%s"), *MessagePrefix, TEXT("EVaRestRequestStatus::Processing."));
+			UE_LOG_Figma2UMG(Warning, TEXT("%s%s"), *MessagePrefix, TEXT("EHttpRequestStatus::Processing."));
 			break;
 		case EHttpRequestStatus::Failed:
-			UpdateStatus(eRequestStatus::Failed, MessagePrefix + TEXT("EVaRestRequestStatus::Failed"));
+			UpdateStatus(eRequestStatus::Failed, MessagePrefix + TEXT("EHttpRequestStatus::Failed"));
 			break;
 #if (ENGINE_MAJOR_VERSION < 5 || ENGINE_MINOR_VERSION < 4)
 		case EHttpRequestStatus::Failed_ConnectionError:
-			UpdateStatus(eRequestStatus::Failed, MessagePrefix + TEXT("EVaRestRequestStatus::Failed_ConnectionError"));
+			UpdateStatus(eRequestStatus::Failed, MessagePrefix + TEXT("EHttpRequestStatus::Failed_ConnectionError"));
 			break;
 #endif
 
@@ -282,7 +282,7 @@ TSharedPtr<FJsonObject> UFigmaImporter::ParseRequestReceived(FString MessagePref
 		case EHttpResponseCodes::Ok:
 #endif
 		{
-				UE_LOG_Figma2UMG(Display, TEXT("%s%s"), *MessagePrefix, TEXT("EVaRestRequestStatus::Succeeded"));
+				UE_LOG_Figma2UMG(Display, TEXT("%s%s"), *MessagePrefix, TEXT("EHttpRequestStatus::Succeeded"));
 				TSharedPtr<FJsonObject> JsonObj;
 				TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
 
@@ -346,7 +346,7 @@ void UFigmaImporter::DownloadNextDependency()
 		{
 			MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_RequestLib", "Downloading Library File."));
 			CurrentLibraryFileKey = Lib.Key;
-			if (CreateRequest(FIGMA_ENDPOINT_FILES, CurrentLibraryFileKey, FString(), OnVaRestLibraryFileRequestDelegate))
+			if (CreateRequest(FIGMA_ENDPOINT_FILES, CurrentLibraryFileKey, FString(), OnFigmaLibraryFileRequestDelegate))
 			{
 				UE_LOG_Figma2UMG(Display, TEXT("Requesting library file %s from Figma API"), *CurrentLibraryFileKey);
 			}
@@ -355,7 +355,7 @@ void UFigmaImporter::DownloadNextDependency()
 	}
 
 	MainProgress.Update(1.0f, NSLOCTEXT("Figma2UMG", "Figma2UMG_RequestFile", "Downloading Design File."));
-	if (CreateRequest(FIGMA_ENDPOINT_FILES, FileKey, Ids, OnVaRestFileRequestDelegate))
+	if (CreateRequest(FIGMA_ENDPOINT_FILES, FileKey, Ids, OnFigmaFileRequestDelegate))
 	{
 		UE_LOG_Figma2UMG(Display, TEXT("Requesting file %s from Figma API"),
 						 *FileKey);
@@ -529,7 +529,7 @@ void UFigmaImporter::RequestImageRefURLs()
 				  {
 					  CurrentFile->ImageRefRequested = true;
 					  if (CreateRequest(FIGMA_ENDPOINT_FILES, CurrentFile->FileKey, FString(),
-										"/images", OnVaRestImagesRefRequestDelegate))
+										"/images", OnFigmaImagesRefRequestDelegate))
 					  {
 						  UE_LOG_Figma2UMG(Display,
 										   TEXT("[Figma images Request] Requesting imageRefs for "
@@ -638,7 +638,7 @@ void UFigmaImporter::RequestImageURLs()
 												"file %s from Figma API."),
 										   RequestCount, *Requests->FileKey);
 						  CreateRequest(FIGMA_ENDPOINT_IMAGES, Requests->FileKey,
-										ImageIdsFormated, OnVaRestImagesRequestDelegate);
+										ImageIdsFormated, OnFigmaImagesRequestDelegate);
 						  return;
 					  }
 				  }

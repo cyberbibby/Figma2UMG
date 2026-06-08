@@ -114,12 +114,12 @@ protected:
 	UFUNCTION()
 	void SaveAll();
 
-	FHttpRequestCompleteDelegate OnVaRestLibraryFileRequestDelegate;
-	FHttpRequestCompleteDelegate OnVaRestFileRequestDelegate;
+	FHttpRequestCompleteDelegate OnFigmaLibraryFileRequestDelegate;
+	FHttpRequestCompleteDelegate OnFigmaFileRequestDelegate;
 	FProcessFinishedDelegate OnBuildersCreatedDelegate;
 	FProcessFinishedDelegate OnAssetsCreatedDelegate;
-	FHttpRequestCompleteDelegate OnVaRestImagesRequestDelegate;
-	FHttpRequestCompleteDelegate OnVaRestImagesRefRequestDelegate;
+	FHttpRequestCompleteDelegate OnFigmaImagesRequestDelegate;
+	FHttpRequestCompleteDelegate OnFigmaImagesRefRequestDelegate;
 	FOnImageRequestCompleteDelegate OnImageDownloadRequestCompleted;
 	FOnFontRequestCompleteDelegate OnFontDownloadRequestCompleted;
 	FProcessFinishedDelegate OnPatchUAssetsDelegate;
