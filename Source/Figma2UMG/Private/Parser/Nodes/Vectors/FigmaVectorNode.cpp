@@ -68,6 +68,11 @@ bool UFigmaVectorNode::CreateAssetBuilder(const FString& InFileKey, TArray<TScri
 	AssetBuilder->SetNode(InFileKey, this);
 	AssetBuilders.Add(AssetBuilder);
 
+	if (HasTextureOnlyImagePrefix())
+	{
+		return true;
+	}
+
 	if (DoesSupportImageRef())
 	{
 		CreatePaintAssetBuilderIfNeeded(InFileKey, AssetBuilders, Fills, Strokes);

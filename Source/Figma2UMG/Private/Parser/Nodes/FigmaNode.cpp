@@ -301,6 +301,11 @@ TObjectPtr<UWidget> UFigmaNode::FindWidgetForNode(const TObjectPtr<UPanelWidget>
 
 void UFigmaNode::CreatePaintAssetBuilderIfNeeded(const FString& InFileKey, TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders, TArray<FFigmaPaint>& InFills, TArray<FFigmaPaint>& InStrokes) const
 {
+	if (HasTextureOnlyImagePrefix())
+	{
+		return;
+	}
+
 	for (FFigmaPaint& Paint : InFills)
 	{
 		Paint.CreateAssetBuilder(InFileKey, this, AssetBuilders);		

@@ -8,6 +8,7 @@
 #include "WidgetBlueprint.h"
 #include "Builder/WidgetBlueprintHelper.h"
 #include "Builder/Asset/FontBuilder.h"
+#include "Builder/Asset/Texture2DBuilder.h"
 #include "Builder/Widget/GenericWidgetBuilder.h"
 #include "Builder/Widget/TextBlockWidgetBuilder.h"
 #include "Components/TextBlock.h"
@@ -77,6 +78,14 @@ FVector2D UFigmaText::GetAbsoluteCenter() const
 
 bool UFigmaText::CreateAssetBuilder(const FString& InFileKey, TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders)
 {
+	if (HasTextureOnlyImagePrefix())
+	{
+		UTexture2DBuilder* Texture2DBuilder = NewObject<UTexture2DBuilder>();
+		Texture2DBuilder->SetNode(InFileKey, this);
+		AssetBuilders.Add(Texture2DBuilder);
+		return true;
+	}
+
 	//TODO: Look if font is already imported.
 	UFontBuilder* AssetBuilder = NewObject<UFontBuilder>();
 	AssetBuilder->SetNode(InFileKey, this);
@@ -95,12 +104,22 @@ FString UFigmaText::GetPackageNameForBuilder(const TScriptInterface<IAssetBuilde
 	{
 		TopParentNode = TopParentNode->GetParentNode();
 	}
+	if (HasTextureOnlyImagePrefix() && Cast<UTexture2DBuilder>(InAssetBuilder.GetObject()))
+	{
+		return TopParentNode->GetCurrentPackagePath() + TEXT("/Textures");
+	}
+
 	const FString Suffix = "Fonts";
 	return TopParentNode->GetCurrentPackagePath() + TEXT("/") + Suffix;
 }
 
 TScriptInterface<IWidgetBuilder> UFigmaText::CreateWidgetBuilders(bool IsRoot/*= false*/, bool AllowFrameButton/*= true*/) const
 {
+	if (HasTextureOnlyImagePrefix())
+	{
+		return nullptr;
+	}
+
 	const FFigmaUMGSemanticName SemanticName = GetUMGSemanticName();
 	if (SemanticName.Role == EFigmaUMGWidgetRole::Ignore)
 	{
