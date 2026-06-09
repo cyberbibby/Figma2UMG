@@ -8,6 +8,7 @@
 #include "Blueprint/IUserObjectListEntry.h"
 #include "Builder/Asset/WidgetBlueprintBuilder.h"
 #include "Builder/Widget/Figma2UMGListEntryWidget.h"
+#include "Components/CanvasPanelSlot.h"
 #include "Components/ContentWidget.h"
 #include "Components/CheckBox.h"
 #include "Components/EditableText.h"
@@ -387,6 +388,14 @@ void UGenericLeafWidgetBuilder::ResetWidget()
 void UGenericLeafWidgetBuilder::Setup() const
 {
 	ApplyTextIfSupported(Node, Widget);
+	if (Cast<URichTextBlock>(Widget))
+	{
+		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
+		{
+			CanvasSlot->SetAutoSize(true);
+		}
+	}
+
 	ApplyListViewDefaults(Widget, ListEntryWidgetBlueprintBuilder, DesignerPreviewEntryCount);
 
 	if (USpacer* Spacer = Cast<USpacer>(Widget))

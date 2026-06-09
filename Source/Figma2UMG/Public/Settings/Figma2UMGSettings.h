@@ -28,7 +28,7 @@ public:
 	FString ContentRootFolder = "/Game/Figma";
 
 	UPROPERTY(Config, EditAnywhere, meta = (Category = "Figma2UMG|Options", ToolTip = "Try to download missing fonts from Google."))
-	bool DownloadFontsFromGoogle = true;
+	bool DownloadFontsFromGoogle = false;
 
 	UPROPERTY(Config, EditAnywhere, meta = (Category = "Figma2UMG|Options", AdvancedDisplay, EditCondition = "DownloadFontsFromGoogle", ToolTip = "Your application needs to identify itself every time it sends a request to the Google Fonts Developer API. See https://developers.google.com/fonts/docs/developer_api."))
 	FString GFontsAPIKey;

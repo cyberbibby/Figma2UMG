@@ -7,6 +7,7 @@
 #include "Figma2UMGModule.h"
 #include "FigmaImportSubsystem.h"
 #include "Blueprint/WidgetTree.h"
+#include "Components/CanvasPanelSlot.h"
 #include "Components/TextBlock.h"
 #include "Components/Widget.h"
 #include "Engine/UserInterfaceSettings.h"
@@ -73,6 +74,10 @@ void UTextBlockWidgetBuilder::Setup() const
 
 	Widget->SetText(FText::FromString(FigmaText->Characters));
 	Widget->SetAutoWrapText(FigmaText->Style.TextAutoResize == EFigmaTextAutoResize::HEIGHT);
+	if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
+	{
+		CanvasSlot->SetAutoSize(true);
+	}
 
 	SetStyle(FigmaText->Style);
 
