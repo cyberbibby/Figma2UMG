@@ -39,6 +39,7 @@ protected:
 	bool ShouldReuseExistingWidgetBlueprint() const;
 	TObjectPtr<UWidgetBlueprint> FindExistingWidgetBlueprintByNodeName() const;
 	TScriptInterface<IWidgetBuilder> CreateListEntryRootWidgetBuilder() const;
+	void ApplyDesignPreviewSize(UWidgetBlueprint* WidgetBP) const;
 	void FillType(const FFigmaComponentPropertyDefinition& Def, FEdGraphPinType& MemberType) const;
 	void PatchMemberVariable(UWidgetBlueprint* WidgetBP, TPair<FString, FFigmaComponentPropertyDefinition> Property) const;
 	void PatchPropertyDefinitions(const TMap<FString, FFigmaComponentPropertyDefinition>& ComponentPropertyDefinitions) const;

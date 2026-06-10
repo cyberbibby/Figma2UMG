@@ -19,6 +19,7 @@
 #include "Builder/Widget/Panels/CanvasBuilder.h"
 #include "Builder/Widget/SizeBoxWidgetBuilder.h"
 #include "Builder/Widget/WidgetBuilder.h"
+#include "Blueprint/UserWidget.h"
 #include "Interfaces/FigmaContainer.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -41,6 +42,42 @@ bool UWidgetBlueprintBuilder::IsListEntryWidgetBlueprintBuilder() const
 bool UWidgetBlueprintBuilder::ShouldReuseExistingWidgetBlueprint() const
 {
 	return Node && Node->HasWidgetBlueprintPrefix();
+}
+
+void UWidgetBlueprintBuilder::ApplyDesignPreviewSize(UWidgetBlueprint* WidgetBP) const
+{
+#if WITH_EDITORONLY_DATA
+	if (!WidgetBP || !Node)
+	{
+		return;
+	}
+
+	const FVector2D DesignSize = Figma2UMGLayout::RoundLayoutVector(Node->GetAbsoluteSize(true));
+	if (DesignSize.X <= 0.0f || DesignSize.Y <= 0.0f)
+	{
+		UE_LOG_Figma2UMG(Warning, TEXT("[UWidgetBlueprintBuilder] Skip design preview size for %s because Figma node size is invalid: %s."),
+			*WidgetBP->GetName(), *DesignSize.ToString());
+		return;
+	}
+
+	UClass* GeneratedClass = WidgetBP->GeneratedClass;
+	UUserWidget* WidgetDefaults = GeneratedClass ? Cast<UUserWidget>(GeneratedClass->GetDefaultObject()) : nullptr;
+	if (!WidgetDefaults)
+	{
+		UE_LOG_Figma2UMG(Warning, TEXT("[UWidgetBlueprintBuilder] Skip design preview size for %s because generated widget defaults are unavailable."),
+			*WidgetBP->GetName());
+		return;
+	}
+
+	WidgetBP->Modify();
+	WidgetDefaults->Modify();
+	WidgetDefaults->DesignTimeSize = DesignSize;
+	WidgetDefaults->DesignSizeMode = EDesignPreviewSizeMode::Custom;
+	FBlueprintEditorUtils::MarkBlueprintAsModified(WidgetBP);
+
+	UE_LOG_Figma2UMG(Display, TEXT("[UWidgetBlueprintBuilder] Set design preview size for %s to %s."),
+		*WidgetBP->GetName(), *DesignSize.ToString());
+#endif
 }
 
 TObjectPtr<UWidgetBlueprint> UWidgetBlueprintBuilder::FindExistingWidgetBlueprintByNodeName() const
@@ -274,6 +311,7 @@ void UWidgetBlueprintBuilder::CompileBP(EBlueprintCompileOptions CompileFlags)
 
 	UE_LOG_Figma2UMG(Display, TEXT("Compilint blueprint %s."), *WidgetBP->GetName());
 	FKismetEditorUtilities::CompileBlueprint(WidgetBP, CompileFlags, &LogResults);
+	ApplyDesignPreviewSize(WidgetBP);
 
 	LoadAssets();
 	if (!Asset)

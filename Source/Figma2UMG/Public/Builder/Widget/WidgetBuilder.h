@@ -94,6 +94,7 @@ protected:
 	void SetOpacity() const;
 	void SetConstraintsAndAlign() const;
 	void SetClipsContent() const;
+	bool AllowsCanvasSlotAutoSize() const;
 
 	void SetFill(const TArray<FFigmaPaint>& Fills) const;
 	template<class WidgetT>

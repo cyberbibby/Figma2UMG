@@ -26,6 +26,7 @@
 #include "Parser/Nodes/FigmaNode.h"
 #include "Parser/Nodes/FigmaSection.h"
 #include "Parser/Nodes/Vectors/FigmaText.h"
+#include "Parser/Nodes/Vectors/FigmaVectorNode.h"
 
 namespace
 {
@@ -68,6 +69,179 @@ namespace
 		}
 
 		return Node->GetPosition();
+	}
+
+	struct FCanvasAxisLayout
+	{
+		float AnchorMinimum = 0.0f;
+		float AnchorMaximum = 0.0f;
+		float Alignment = 0.0f;
+		float OffsetStart = 0.0f;
+		float OffsetEnd = 0.0f;
+	};
+
+	bool TryGetLayoutConstraints(const UFigmaNode* Node, FFigmaLayoutConstraint& OutConstraints)
+	{
+		if (const UFigmaGroup* FigmaGroup = Cast<UFigmaGroup>(Node))
+		{
+			OutConstraints = FigmaGroup->Constraints;
+			return true;
+		}
+
+		if (const UFigmaInstance* FigmaInstance = Cast<UFigmaInstance>(Node))
+		{
+			OutConstraints = FigmaInstance->Constraints;
+			return true;
+		}
+
+		if (const UFigmaText* FigmaText = Cast<UFigmaText>(Node))
+		{
+			OutConstraints = FigmaText->Constraints;
+			return true;
+		}
+
+		if (const UFigmaVectorNode* FigmaVectorNode = Cast<UFigmaVectorNode>(Node))
+		{
+			OutConstraints = FigmaVectorNode->Constraints;
+			return true;
+		}
+
+		return false;
+	}
+
+	bool IsStretchHorizontalConstraint(EFigmaLayoutConstraintHorizontal Constraint)
+	{
+		return Constraint == EFigmaLayoutConstraintHorizontal::LEFT_RIGHT
+			|| Constraint == EFigmaLayoutConstraintHorizontal::SCALE;
+	}
+
+	bool IsStretchVerticalConstraint(EFigmaLayoutConstraintVertical Constraint)
+	{
+		return Constraint == EFigmaLayoutConstraintVertical::TOP_BOTTOM
+			|| Constraint == EFigmaLayoutConstraintVertical::SCALE;
+	}
+
+	FCanvasAxisLayout MakeFixedStartAxisLayout(float Position, float Size)
+	{
+		FCanvasAxisLayout Layout;
+		Layout.OffsetStart = Position;
+		Layout.OffsetEnd = Size;
+		return Layout;
+	}
+
+	bool HasValidParentLength(float ParentLength)
+	{
+		return ParentLength > KINDA_SMALL_NUMBER;
+	}
+
+	FCanvasAxisLayout MakeHorizontalCanvasAxisLayout(EFigmaLayoutConstraintHorizontal Constraint, float ParentLength, float Position, float Size)
+	{
+		switch (Constraint)
+		{
+		case EFigmaLayoutConstraintHorizontal::LEFT:
+			return MakeFixedStartAxisLayout(Position, Size);
+		case EFigmaLayoutConstraintHorizontal::RIGHT:
+			if (HasValidParentLength(ParentLength))
+			{
+				FCanvasAxisLayout Layout;
+				Layout.AnchorMinimum = 1.0f;
+				Layout.AnchorMaximum = 1.0f;
+				Layout.Alignment = 1.0f;
+				Layout.OffsetStart = Position + Size - ParentLength;
+				Layout.OffsetEnd = Size;
+				return Layout;
+			}
+			break;
+		case EFigmaLayoutConstraintHorizontal::CENTER:
+			if (HasValidParentLength(ParentLength))
+			{
+				FCanvasAxisLayout Layout;
+				Layout.AnchorMinimum = 0.5f;
+				Layout.AnchorMaximum = 0.5f;
+				Layout.Alignment = 0.5f;
+				Layout.OffsetStart = Position + (Size * 0.5f) - (ParentLength * 0.5f);
+				Layout.OffsetEnd = Size;
+				return Layout;
+			}
+			break;
+		case EFigmaLayoutConstraintHorizontal::LEFT_RIGHT:
+			if (HasValidParentLength(ParentLength))
+			{
+				FCanvasAxisLayout Layout;
+				Layout.AnchorMinimum = 0.0f;
+				Layout.AnchorMaximum = 1.0f;
+				Layout.OffsetStart = Position;
+				Layout.OffsetEnd = ParentLength - Position - Size;
+				return Layout;
+			}
+			break;
+		case EFigmaLayoutConstraintHorizontal::SCALE:
+			if (HasValidParentLength(ParentLength))
+			{
+				FCanvasAxisLayout Layout;
+				Layout.AnchorMinimum = Position / ParentLength;
+				Layout.AnchorMaximum = (Position + Size) / ParentLength;
+				return Layout;
+			}
+			break;
+		}
+
+		return MakeFixedStartAxisLayout(Position, Size);
+	}
+
+	FCanvasAxisLayout MakeVerticalCanvasAxisLayout(EFigmaLayoutConstraintVertical Constraint, float ParentLength, float Position, float Size)
+	{
+		switch (Constraint)
+		{
+		case EFigmaLayoutConstraintVertical::TOP:
+			return MakeFixedStartAxisLayout(Position, Size);
+		case EFigmaLayoutConstraintVertical::BOTTOM:
+			if (HasValidParentLength(ParentLength))
+			{
+				FCanvasAxisLayout Layout;
+				Layout.AnchorMinimum = 1.0f;
+				Layout.AnchorMaximum = 1.0f;
+				Layout.Alignment = 1.0f;
+				Layout.OffsetStart = Position + Size - ParentLength;
+				Layout.OffsetEnd = Size;
+				return Layout;
+			}
+			break;
+		case EFigmaLayoutConstraintVertical::CENTER:
+			if (HasValidParentLength(ParentLength))
+			{
+				FCanvasAxisLayout Layout;
+				Layout.AnchorMinimum = 0.5f;
+				Layout.AnchorMaximum = 0.5f;
+				Layout.Alignment = 0.5f;
+				Layout.OffsetStart = Position + (Size * 0.5f) - (ParentLength * 0.5f);
+				Layout.OffsetEnd = Size;
+				return Layout;
+			}
+			break;
+		case EFigmaLayoutConstraintVertical::TOP_BOTTOM:
+			if (HasValidParentLength(ParentLength))
+			{
+				FCanvasAxisLayout Layout;
+				Layout.AnchorMinimum = 0.0f;
+				Layout.AnchorMaximum = 1.0f;
+				Layout.OffsetStart = Position;
+				Layout.OffsetEnd = ParentLength - Position - Size;
+				return Layout;
+			}
+			break;
+		case EFigmaLayoutConstraintVertical::SCALE:
+			if (HasValidParentLength(ParentLength))
+			{
+				FCanvasAxisLayout Layout;
+				Layout.AnchorMinimum = Position / ParentLength;
+				Layout.AnchorMaximum = (Position + Size) / ParentLength;
+				return Layout;
+			}
+			break;
+		}
+
+		return MakeFixedStartAxisLayout(Position, Size);
 	}
 }
 
@@ -299,11 +473,7 @@ void IWidgetBuilder::SetSize() const
 		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
 		{
 			CanvasSlot->SetSize(Figma2UMGLayout::RoundLayoutVector(Size));
-
-			if (SizeToContent || Widget->IsA<UUserWidget>())
-			{
-				CanvasSlot->SetAutoSize(true);
-			}
+			CanvasSlot->SetAutoSize((SizeToContent || Widget->IsA<UUserWidget>()) && AllowsCanvasSlotAutoSize());
 		}
 		//else if (USizeBoxSlot* SizeBoxSlot = Cast<USizeBoxSlot>(Widget->Slot))
 		//{
@@ -338,7 +508,7 @@ void IWidgetBuilder::SetPadding() const
 	const TObjectPtr<UWidget> Widget = GetWidget();
 	if (Widget && Widget->Slot)
 	{
-		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
+		if (Cast<UCanvasPanelSlot>(Widget->Slot))
 		{
 		}
 		else if (USizeBoxSlot* SizeBoxSlot = Cast<USizeBoxSlot>(Widget->Slot))
@@ -401,55 +571,116 @@ void IWidgetBuilder::SetOpacity() const
 
 void IWidgetBuilder::SetConstraintsAndAlign() const
 {
+	const TObjectPtr<UWidget> Widget = GetWidget();
+	if (!Widget || !Widget->Slot)
+	{
+		return;
+	}
+
+	if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
+	{
+		FFigmaLayoutConstraint Constraints;
+		if (!TryGetLayoutConstraints(Node, Constraints))
+		{
+			return;
+		}
+
+		FVector2D Size = FVector2D::ZeroVector;
+		bool SizeToContent = false;
+		if (!GetSizeValue(Size, SizeToContent))
+		{
+			return;
+		}
+
+		const UFigmaNode* ParentNode = Node ? Node->GetParentNode() : nullptr;
+		const FVector2D ParentSize = ParentNode ? ParentNode->GetAbsoluteSize(true) : FVector2D::ZeroVector;
+		const FVector2D Position = GetCanvasSlotPosition(Node);
+		const FCanvasAxisLayout HorizontalLayout = MakeHorizontalCanvasAxisLayout(Constraints.Horizontal, ParentSize.X, Position.X, Size.X);
+		const FCanvasAxisLayout VerticalLayout = MakeVerticalCanvasAxisLayout(Constraints.Vertical, ParentSize.Y, Position.Y, Size.Y);
+
+		FAnchorData LayoutData;
+		LayoutData.Anchors = FAnchors(
+			HorizontalLayout.AnchorMinimum,
+			VerticalLayout.AnchorMinimum,
+			HorizontalLayout.AnchorMaximum,
+			VerticalLayout.AnchorMaximum);
+		LayoutData.Alignment = FVector2D(HorizontalLayout.Alignment, VerticalLayout.Alignment);
+		LayoutData.Offsets = Figma2UMGLayout::RoundLayoutMargin(FMargin(
+			HorizontalLayout.OffsetStart,
+			VerticalLayout.OffsetStart,
+			HorizontalLayout.OffsetEnd,
+			VerticalLayout.OffsetEnd));
+		CanvasSlot->SetLayout(LayoutData);
+		if (!AllowsCanvasSlotAutoSize())
+		{
+			CanvasSlot->SetAutoSize(false);
+		}
+		return;
+	}
+
 	EHorizontalAlignment HorizontalAlignment = EHorizontalAlignment::HAlign_Left;
 	EVerticalAlignment VerticalAlignment = EVerticalAlignment::VAlign_Top;
 	if (!GetAlignmentValues(HorizontalAlignment, VerticalAlignment))
 		return;
 
-	const TObjectPtr<UWidget> Widget = GetWidget();
-	if (Widget && Widget->Slot)
+	if (UWrapBox* WrapBox = Cast<UWrapBox>(Widget))
 	{
-		if (UWrapBox* WrapBox = Cast<UWrapBox>(Widget))
-		{
-			WrapBox->SetHorizontalAlignment(HorizontalAlignment);
-			HorizontalAlignment = HAlign_Fill;
-			VerticalAlignment = VAlign_Fill;
-		}
+		WrapBox->SetHorizontalAlignment(HorizontalAlignment);
+		HorizontalAlignment = HAlign_Fill;
+		VerticalAlignment = VAlign_Fill;
+	}
 
-		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
+	if (USizeBoxSlot* SizeBoxSlot = Cast<USizeBoxSlot>(Widget->Slot))
+	{
+		SizeBoxSlot->SetHorizontalAlignment(HAlign_Fill);
+		SizeBoxSlot->SetVerticalAlignment(VAlign_Fill);
+	}
+	else if (UBorderSlot* BorderSlot = Cast<UBorderSlot>(Widget->Slot))
+	{
+		BorderSlot->SetHorizontalAlignment(HorizontalAlignment);
+		BorderSlot->SetVerticalAlignment(VerticalAlignment);
+	}
+	else if (UHorizontalBoxSlot* HorizontalBoxSlot = Cast<UHorizontalBoxSlot>(Widget->Slot))
+	{
+		HorizontalBoxSlot->SetHorizontalAlignment(HorizontalAlignment);
+		HorizontalBoxSlot->SetVerticalAlignment(VerticalAlignment);
+	}
+	else if (UVerticalBoxSlot* VerticalBoxSlot = Cast<UVerticalBoxSlot>(Widget->Slot))
+	{
+		VerticalBoxSlot->SetHorizontalAlignment(HorizontalAlignment);
+		VerticalBoxSlot->SetVerticalAlignment(VerticalAlignment);
+	}
+	else if (UWrapBoxSlot* WrapBoxSlot = Cast<UWrapBoxSlot>(Widget->Slot))
+	{
+		WrapBoxSlot->SetHorizontalAlignment(HorizontalAlignment);
+		WrapBoxSlot->SetVerticalAlignment(VerticalAlignment);
+	}
+	else if (UButtonSlot* ButtonSlot = Cast<UButtonSlot>(Widget->Slot))
+	{
+		if (Widget->IsA<UPanelWidget>())
 		{
+			// Generated button content panels provide the coordinate space for their children.
+			ButtonSlot->SetHorizontalAlignment(HAlign_Fill);
+			ButtonSlot->SetVerticalAlignment(VAlign_Fill);
 		}
-		else if (USizeBoxSlot* SizeBoxSlot = Cast<USizeBoxSlot>(Widget->Slot))
-		{
-			SizeBoxSlot->SetHorizontalAlignment(HAlign_Fill);
-			SizeBoxSlot->SetVerticalAlignment(VAlign_Fill);
-		}
-		else if (UBorderSlot* BorderSlot = Cast<UBorderSlot>(Widget->Slot))
-		{
-			BorderSlot->SetHorizontalAlignment(HorizontalAlignment);
-			BorderSlot->SetVerticalAlignment(VerticalAlignment);
-		}
-		else if (UHorizontalBoxSlot* HorizontalBoxSlot = Cast<UHorizontalBoxSlot>(Widget->Slot))
-		{
-			HorizontalBoxSlot->SetHorizontalAlignment(HorizontalAlignment);
-			HorizontalBoxSlot->SetVerticalAlignment(VerticalAlignment);
-		}
-		else if (UVerticalBoxSlot* VerticalBoxSlot = Cast<UVerticalBoxSlot>(Widget->Slot))
-		{
-			VerticalBoxSlot->SetHorizontalAlignment(HorizontalAlignment);
-			VerticalBoxSlot->SetVerticalAlignment(VerticalAlignment);
-		}
-		else if (UWrapBoxSlot* WrapBoxSlot = Cast<UWrapBoxSlot>(Widget->Slot))
-		{
-			WrapBoxSlot->SetHorizontalAlignment(HorizontalAlignment);
-			WrapBoxSlot->SetVerticalAlignment(VerticalAlignment);
-		}
-		else if (UButtonSlot* ButtonSlot = Cast<UButtonSlot>(Widget->Slot))
+		else
 		{
 			ButtonSlot->SetHorizontalAlignment(HorizontalAlignment);
 			ButtonSlot->SetVerticalAlignment(VerticalAlignment);
 		}
 	}
+}
+
+bool IWidgetBuilder::AllowsCanvasSlotAutoSize() const
+{
+	FFigmaLayoutConstraint Constraints;
+	if (!TryGetLayoutConstraints(Node, Constraints))
+	{
+		return true;
+	}
+
+	return !IsStretchHorizontalConstraint(Constraints.Horizontal)
+		&& !IsStretchVerticalConstraint(Constraints.Vertical);
 }
 
 void IWidgetBuilder::SetClipsContent() const

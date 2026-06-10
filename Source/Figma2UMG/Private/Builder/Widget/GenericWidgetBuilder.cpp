@@ -392,7 +392,7 @@ void UGenericLeafWidgetBuilder::Setup() const
 	{
 		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
 		{
-			CanvasSlot->SetAutoSize(true);
+			CanvasSlot->SetAutoSize(AllowsCanvasSlotAutoSize());
 		}
 	}
 

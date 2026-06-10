@@ -76,7 +76,7 @@ void UTextBlockWidgetBuilder::Setup() const
 	Widget->SetAutoWrapText(FigmaText->Style.TextAutoResize == EFigmaTextAutoResize::HEIGHT);
 	if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
 	{
-		CanvasSlot->SetAutoSize(true);
+		CanvasSlot->SetAutoSize(AllowsCanvasSlotAutoSize());
 	}
 
 	SetStyle(FigmaText->Style);
