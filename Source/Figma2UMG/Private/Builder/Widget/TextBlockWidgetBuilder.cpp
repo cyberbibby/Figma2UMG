@@ -117,17 +117,24 @@ void UTextBlockWidgetBuilder::SetStyle(const FFigmaTypeStyle& Style) const
 	FSlateFontInfo FontInfo = Widget->GetFont();
 
 	const UFigmaImportSubsystem* Importer = GEditor->GetEditorSubsystem<UFigmaImportSubsystem>();
-	const UFont* FoundFont = Importer ? Importer->FindFontAssetFromFamily(Style.FontFamily) : nullptr;
+	const UFont* FoundFont = Importer ? Importer->ResolveFontAssetFromFamily(Style.FontFamily) : nullptr;
 	if (FoundFont)
 	{
 		FontInfo.FontObject = FoundFont;
 	}
 
-	FontInfo.TypefaceFontName = *Style.GetFaceName();
+	const FString TypefaceName = Style.GetFaceName();
+	FontInfo.TypefaceFontName = *TypefaceName;
 
 	FontInfo.Size = ConvertFontSizeFromDisplayToNative(Style.FontSize);
 	FontInfo.LetterSpacing = (Style.LetterSpacing*100.0f);
 	Widget->SetFont(FontInfo);
+
+	const FString NodeName = Node ? Node->GetNodeName() : FString(TEXT("<null>"));
+	const FString WidgetName = Widget ? Widget->GetName() : FString(TEXT("<null>"));
+	const FString FontPath = FoundFont ? FoundFont->GetPathName() : FString(TEXT("<null>"));
+	UE_LOG_Figma2UMG(Display, TEXT("[Font] Text node '%s' widget '%s' requested family '%s' face '%s'; applied font asset '%s'."),
+		*NodeName, *WidgetName, *Style.FontFamily, *TypefaceName, *FontPath);
 }
 
 float UTextBlockWidgetBuilder::ConvertFontSizeFromDisplayToNative(float DisplayFontSize) const

@@ -3,12 +3,22 @@
 
 #include "FigmaImportSubsystem.h"
 
+#include "Figma2UMGModule.h"
 #include "PackageTools.h"
 #include "Engine/Font.h"
 #include "Engine/ObjectLibrary.h"
 #include "REST/FigmaImporter.h"
 #include "REST/RequestParams.h"
 
+namespace
+{
+	const TCHAR* DefaultRobotoFontPath = TEXT("/Engine/EngineFonts/Roboto.Roboto");
+
+	FString NormalizeFontFamilyName(const FString& FamilyName)
+	{
+		return UPackageTools::SanitizePackageName(FamilyName.Replace(TEXT(" "), TEXT("")));
+	}
+}
 
 UFigmaImporter* UFigmaImportSubsystem::Request(const TObjectPtr<URequestParams> InProperties, const FOnFigmaImportUpdateStatusCB& InRequesterCallback)
 {
@@ -89,7 +99,12 @@ void UFigmaImportSubsystem::RefreshFontAssets()
 	TArray<FString> Paths;
 	Paths.Add(TEXT("/Game"));
 	Paths.Add(TEXT("/Engine/EngineFonts"));
+	FontObjectLibrary->bRecursivePaths = true;
 	FontObjectLibrary->LoadAssetDataFromPaths(Paths);
+
+	TArray<FAssetData> AssetDatas;
+	FontObjectLibrary->GetAssetDataList(AssetDatas);
+	UE_LOG_Figma2UMG(Display, TEXT("[Font] Refreshed font asset library from /Game and /Engine/EngineFonts. Found %d font asset(s)."), AssetDatas.Num());
 }
 
 void UFigmaImportSubsystem::AddNewFont(UFont* NewFont)
@@ -99,10 +114,15 @@ void UFigmaImportSubsystem::AddNewFont(UFont* NewFont)
 
 UFont* UFigmaImportSubsystem::FindFontAssetFromFamily(const FString& FamilyName) const
 {
+	if (!FontObjectLibrary)
+	{
+		return nullptr;
+	}
+
 	TArray<FAssetData> AssetDatas;
 	FontObjectLibrary->GetAssetDataList(AssetDatas);
 
-	const FString FontFamily = UPackageTools::SanitizePackageName(FamilyName.Replace(TEXT(" "), TEXT("")));
+	const FString FontFamily = NormalizeFontFamilyName(FamilyName);
 	for (const FAssetData& AssetData : AssetDatas)
 	{
 		if (!FontFamily.Equals(AssetData.AssetName.ToString(), ESearchCase::IgnoreCase))
@@ -125,6 +145,24 @@ UFont* UFigmaImportSubsystem::FindFontAssetFromFamily(const FString& FamilyName)
 	}
 
 	return nullptr;
+}
+
+UFont* UFigmaImportSubsystem::ResolveFontAssetFromFamily(const FString& FamilyName) const
+{
+	if (UFont* Font = FindFontAssetFromFamily(FamilyName))
+	{
+		return Font;
+	}
+
+	const FString FontFamily = NormalizeFontFamilyName(FamilyName);
+	UE_LOG_Figma2UMG(Warning, TEXT("[Font] No Unreal font asset matched Figma font family '%s' (normalized '%s'). Falling back to %s."), *FamilyName, *FontFamily, DefaultRobotoFontPath);
+
+	UFont* RobotoFont = LoadObject<UFont>(nullptr, DefaultRobotoFontPath);
+	if (!RobotoFont)
+	{
+		UE_LOG_Figma2UMG(Error, TEXT("[Font] Failed to load default Roboto font asset at %s."), DefaultRobotoFontPath);
+	}
+	return RobotoFont;
 }
 
 FGFontFamilyInfo* UFigmaImportSubsystem::FindGoogleFontsInfo(const FString& FamilyName)

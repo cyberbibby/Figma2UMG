@@ -40,6 +40,7 @@ public:
 
 	void AddNewFont(UFont* NewFont);
 	UFont* FindFontAssetFromFamily(const FString& FamilyName) const;
+	UFont* ResolveFontAssetFromFamily(const FString& FamilyName) const;
 
 	bool HasGoogleFontsInfo() const{ return !GoogleFontsInfo.IsEmpty(); }
 	TArray<FGFontFamilyInfo>& GetGoogleFontsInfo() { return GoogleFontsInfo; }

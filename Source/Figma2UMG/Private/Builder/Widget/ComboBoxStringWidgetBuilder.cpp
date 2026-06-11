@@ -62,13 +62,14 @@ void UComboBoxStringWidgetBuilder::SetSelectedOptionStyle(const FFigmaTypeStyle&
 	FSlateFontInfo FontInfo;
 
 	const UFigmaImportSubsystem* Importer = GEditor ? GEditor->GetEditorSubsystem<UFigmaImportSubsystem>() : nullptr;
-	const UFont* FoundFont = Importer ? Importer->FindFontAssetFromFamily(InStyle.FontFamily) : nullptr;
+	const UFont* FoundFont = Importer ? Importer->ResolveFontAssetFromFamily(InStyle.FontFamily) : nullptr;
 	if (FoundFont)
 	{
 		FontInfo.FontObject = FoundFont;
 	}
 
-	FontInfo.TypefaceFontName = *InStyle.GetFaceName();
+	const FString TypefaceName = InStyle.GetFaceName();
+	FontInfo.TypefaceFontName = *TypefaceName;
 #if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 3)
 	const UUserInterfaceSettings* UISettings = GetDefault<UUserInterfaceSettings>();
 	FontInfo.Size = FMath::GridSnap(InStyle.FontSize * UISettings->GetFontDisplayDPI() / static_cast<float>(FontConstants::RenderDPI), 0.01f);
@@ -77,6 +78,11 @@ void UComboBoxStringWidgetBuilder::SetSelectedOptionStyle(const FFigmaTypeStyle&
 #endif
 	FontInfo.LetterSpacing = InStyle.LetterSpacing * 100.0f;
 	SelectedOptionFont = FontInfo;
+
+	const FString NodeName = Node ? Node->GetNodeName() : FString(TEXT("<null>"));
+	const FString FontPath = FoundFont ? FoundFont->GetPathName() : FString(TEXT("<null>"));
+	UE_LOG_Figma2UMG(Display, TEXT("[Font] ComboBoxString node '%s' requested selected-option family '%s' face '%s'; applied font asset '%s'."),
+		*NodeName, *InStyle.FontFamily, *TypefaceName, *FontPath);
 }
 
 void UComboBoxStringWidgetBuilder::SetSelectedOptionColor(const FLinearColor& InColor)
