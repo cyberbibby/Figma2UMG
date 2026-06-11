@@ -81,13 +81,10 @@ void UTextBlockWidgetBuilder::Setup() const
 
 	SetStyle(FigmaText->Style);
 
-	if (!FigmaText->Fills.IsEmpty())
+	FLinearColor TextColor;
+	if (FigmaText->TryGetTextColorFromFigmaSRGB(TextColor))
 	{
-		Widget->SetColorAndOpacity(FigmaText->Fills[0].GetLinearColor());
-		if (FigmaText->Fills.Num() > 1)
-		{
-			UE_LOG_Figma2UMG(Warning, TEXT("[UTextBlockWidgetBuilder::Setup] Node %s has &i FFigmaPaints, only 1 is supported. Using the first."), *Node->GetNodeName(), FigmaText->Fills.Num());
-		}
+		Widget->SetColorAndOpacity(FSlateColor(TextColor));
 	}
 }
 
@@ -128,6 +125,22 @@ void UTextBlockWidgetBuilder::SetStyle(const FFigmaTypeStyle& Style) const
 
 	FontInfo.Size = ConvertFontSizeFromDisplayToNative(Style.FontSize);
 	FontInfo.LetterSpacing = (Style.LetterSpacing*100.0f);
+
+	FLinearColor StrokeColor;
+	float StrokeWeight = 0.0f;
+	if (const UFigmaText* FigmaText = Cast<UFigmaText>(Node))
+	{
+		if (FigmaText->TryGetTextStrokeFromFigmaSRGB(StrokeColor, StrokeWeight))
+		{
+			FontInfo.OutlineSettings.OutlineSize = FMath::Max(1, FMath::RoundToInt(StrokeWeight));
+			FontInfo.OutlineSettings.OutlineColor = StrokeColor;
+		}
+		else
+		{
+			FontInfo.OutlineSettings = FFontOutlineSettings();
+		}
+	}
+
 	Widget->SetFont(FontInfo);
 
 	const FString NodeName = Node ? Node->GetNodeName() : FString(TEXT("<null>"));

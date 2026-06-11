@@ -44,6 +44,20 @@ namespace
 
 		return Bounds;
 	}
+
+	bool TryGetFirstVisibleSolidPaintColor(const TArray<FFigmaPaint>& Paints, FLinearColor& OutColor)
+	{
+		for (const FFigmaPaint& Paint : Paints)
+		{
+			if (Paint.Visible && Paint.Type == EPaintTypes::SOLID)
+			{
+				OutColor = Paint.GetLinearColorFromSRGB();
+				return true;
+			}
+		}
+
+		return false;
+	}
 }
 
 void UFigmaText::PostSerialize(const TObjectPtr<UFigmaNode> InParent, const TSharedRef<FJsonObject> JsonObj)
@@ -154,6 +168,32 @@ TScriptInterface<IWidgetBuilder> UFigmaText::CreateWidgetBuilders(bool IsRoot/*=
 	TextBlockWidgetBuilder->SetNode(this);
 
 	return TextBlockWidgetBuilder;
+}
+
+bool UFigmaText::TryGetTextColorFromFigmaSRGB(FLinearColor& OutColor) const
+{
+	if (TryGetFirstVisibleSolidPaintColor(Fills, OutColor))
+	{
+		return true;
+	}
+
+	return TryGetFirstVisibleSolidPaintColor(Style.Fills, OutColor);
+}
+
+bool UFigmaText::TryGetTextStrokeFromFigmaSRGB(FLinearColor& OutColor, float& OutStrokeWeight) const
+{
+	if (StrokeWeight <= 0.0f)
+	{
+		return false;
+	}
+
+	if (!TryGetFirstVisibleSolidPaintColor(Strokes, OutColor))
+	{
+		return false;
+	}
+
+	OutStrokeWeight = StrokeWeight;
+	return true;
 }
 
 void UFigmaText::ProcessComponentPropertyReference(TObjectPtr<UWidgetBlueprint> WidgetBP, TObjectPtr<UWidget> Widget, const TPair<FString, FString>& PropertyReference) const

@@ -32,6 +32,23 @@ public:
 		return FLinearColor(Color.R, Color.G, Color.B, Opacity);
 	}
 
+	FLinearColor GetLinearColorFromSRGB() const
+	{
+		const auto ConvertSRGBChannelToLinear = [](const float Channel)
+			{
+				const float SRGBChannel = FMath::Clamp(Channel, 0.0f, 1.0f);
+				return SRGBChannel <= 0.04045f
+					? SRGBChannel / 12.92f
+					: FMath::Pow((SRGBChannel + 0.055f) / 1.055f, 2.4f);
+			};
+
+		return FLinearColor(
+			ConvertSRGBChannelToLinear(Color.R),
+			ConvertSRGBChannelToLinear(Color.G),
+			ConvertSRGBChannelToLinear(Color.B),
+			FMath::Clamp(Color.A * Opacity, 0.0f, 1.0f));
+	}
+
 	void CreateAssetBuilder(const FString& InFileKey, const UFigmaNode* OwnerNode, TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders, bool IsStroke = false);
 	TObjectPtr<UTexture2D> GetTexture() const;
 	TObjectPtr<UMaterialInterface> GetMaterial() const;

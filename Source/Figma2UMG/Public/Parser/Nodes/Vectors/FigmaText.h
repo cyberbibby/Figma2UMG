@@ -34,6 +34,8 @@ public:
 	virtual bool CreateAssetBuilder(const FString& InFileKey, TArray<TScriptInterface<IAssetBuilder>>& AssetBuilders) override;
 	virtual FString GetPackageNameForBuilder(const TScriptInterface<IAssetBuilder>& InAssetBuilder) const override;
 	virtual TScriptInterface<IWidgetBuilder> CreateWidgetBuilders(bool IsRoot = false, bool AllowFrameButton = true) const override;
+	bool TryGetTextColorFromFigmaSRGB(FLinearColor& OutColor) const;
+	bool TryGetTextStrokeFromFigmaSRGB(FLinearColor& OutColor, float& OutStrokeWeight) const;
 
 	UPROPERTY()
 	bool Locked = false;
@@ -102,7 +104,7 @@ public:
 	TArray<FFigmaPaint> Strokes;
 
 	UPROPERTY()
-	float StrokesWeight;
+	float StrokeWeight = 0.0f;
 
 	UPROPERTY()
 	FFigmaStrokeWeights IndividualStrokeWeights;

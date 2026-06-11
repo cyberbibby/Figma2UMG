@@ -77,6 +77,60 @@ namespace
 		}
 	}
 
+	void ApplyTextVisualsIfSupported(const UFigmaText* FigmaText, const TObjectPtr<UWidget>& Widget)
+	{
+		if (!FigmaText || !Widget)
+		{
+			return;
+		}
+
+		FLinearColor TextColor;
+		const bool bHasTextColor = FigmaText->TryGetTextColorFromFigmaSRGB(TextColor);
+
+		FLinearColor StrokeColor;
+		float StrokeWeight = 0.0f;
+		const bool bHasTextStroke = FigmaText->TryGetTextStrokeFromFigmaSRGB(StrokeColor, StrokeWeight);
+
+		if (UTextBlock* TextBlock = Cast<UTextBlock>(Widget))
+		{
+			if (bHasTextColor)
+			{
+				TextBlock->SetColorAndOpacity(FSlateColor(TextColor));
+			}
+
+			FSlateFontInfo FontInfo = TextBlock->GetFont();
+			if (bHasTextStroke)
+			{
+				FontInfo.OutlineSettings.OutlineSize = FMath::Max(1, FMath::RoundToInt(StrokeWeight));
+				FontInfo.OutlineSettings.OutlineColor = StrokeColor;
+			}
+			else
+			{
+				FontInfo.OutlineSettings = FFontOutlineSettings();
+			}
+			TextBlock->SetFont(FontInfo);
+		}
+		else if (URichTextBlock* RichTextBlock = Cast<URichTextBlock>(Widget))
+		{
+			FTextBlockStyle DefaultTextStyle = RichTextBlock->GetCurrentDefaultTextStyle();
+			if (bHasTextColor)
+			{
+				DefaultTextStyle.SetColorAndOpacity(FSlateColor(TextColor));
+			}
+
+			if (bHasTextStroke)
+			{
+				DefaultTextStyle.Font.OutlineSettings.OutlineSize = FMath::Max(1, FMath::RoundToInt(StrokeWeight));
+				DefaultTextStyle.Font.OutlineSettings.OutlineColor = StrokeColor;
+			}
+			else
+			{
+				DefaultTextStyle.Font.OutlineSettings = FFontOutlineSettings();
+			}
+			RichTextBlock->SetDefaultTextStyle(DefaultTextStyle);
+		}
+	}
+
 	UClass* ResolveListEntryWidgetClass(const TObjectPtr<UWidgetBlueprintBuilder>& EntryWidgetBlueprintBuilder)
 	{
 		if (!EntryWidgetBlueprintBuilder)
@@ -388,6 +442,8 @@ void UGenericLeafWidgetBuilder::ResetWidget()
 void UGenericLeafWidgetBuilder::Setup() const
 {
 	ApplyTextIfSupported(Node, Widget);
+	ApplyTextVisualsIfSupported(Cast<UFigmaText>(Node), Widget);
+
 	if (Cast<URichTextBlock>(Widget))
 	{
 		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
