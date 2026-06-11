@@ -27,6 +27,10 @@ bool UFigmaRectangleVector::CreateAssetBuilder(const FString& InFileKey, TArray<
 	{
 		return Super::CreateAssetBuilder(InFileKey, AssetBuilders);
 	}
+	if (HasImageWidgetProjectTextureReference())
+	{
+		return false;
+	}
 
 	bool HasImage = false;
 	for (FFigmaPaint& Paint : Fills)
@@ -65,6 +69,10 @@ TScriptInterface<IWidgetBuilder> UFigmaRectangleVector::CreateWidgetBuilders(boo
 			if (UTexture2D* Texture = FindProjectTextureByName(TextureName))
 			{
 				ImageWidgetBuilder->SetTexture(Texture);
+				return ImageWidgetBuilder;
+			}
+			if (HasImageWidgetProjectTextureReference())
+			{
 				return ImageWidgetBuilder;
 			}
 		}

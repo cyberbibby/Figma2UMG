@@ -44,6 +44,7 @@ public:
 	virtual FString GetUAssetName() const;
 	bool HasImageWidgetPrefix() const;
 	FString GetImageWidgetTextureAssetName() const;
+	bool HasImageWidgetProjectTextureReference() const;
 	UTexture2D* FindProjectTextureByName(const FString& TextureName) const;
 	bool HasTextureOnlyImagePrefix() const;
 	FString GetTextureOnlyImageAssetName() const;

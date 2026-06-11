@@ -663,6 +663,36 @@ bool UFigmaFile::CreateAssetBuilder(const FString& InFileKey, UFigmaNode& Node, 
 	{
 		return Created;
 	}
+	if (Node.HasImageWidgetProjectTextureReference())
+	{
+		TFunction<void(UFigmaNode&)> CreateTextureOnlyImageAssetBuilders;
+		CreateTextureOnlyImageAssetBuilders = [&](UFigmaNode& ChildNode)
+			{
+				if (ChildNode.HasTextureOnlyImagePrefix())
+				{
+					CreateAssetBuilder(InFileKey, ChildNode, AssetBuilders);
+					return;
+				}
+
+				if (IFigmaContainer* ChildContainer = Cast<IFigmaContainer>(&ChildNode))
+				{
+					ChildContainer->ForEach(IFigmaContainer::FOnEachFunction::CreateLambda([&](UFigmaNode& DescendantNode, const int Index)
+						{
+							CreateTextureOnlyImageAssetBuilders(DescendantNode);
+						}));
+				}
+			};
+
+		if (IFigmaContainer* FigmaContainer = Cast<IFigmaContainer>(&Node))
+		{
+			FigmaContainer->ForEach(IFigmaContainer::FOnEachFunction::CreateLambda([&](UFigmaNode& ChildNode, const int Index)
+				{
+					CreateTextureOnlyImageAssetBuilders(ChildNode);
+				}));
+		}
+
+		return Created;
+	}
 	if (HasExistingWidgetBlueprintForNode(Node))
 	{
 		return Created;

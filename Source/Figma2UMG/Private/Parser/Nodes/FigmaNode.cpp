@@ -115,6 +115,11 @@ FString UFigmaNode::GetImageWidgetTextureAssetName() const
 	return GetNodeName().RightChop(FCString::Strlen(ImageWidgetPrefix)).TrimStartAndEnd();
 }
 
+bool UFigmaNode::HasImageWidgetProjectTextureReference() const
+{
+	return HasImageWidgetPrefix() && GetImageWidgetTextureAssetName().StartsWith(ProjectTextureReferencePrefix, ESearchCase::IgnoreCase);
+}
+
 UTexture2D* UFigmaNode::FindProjectTextureByName(const FString& TextureName) const
 {
 	if (TextureName.IsEmpty())

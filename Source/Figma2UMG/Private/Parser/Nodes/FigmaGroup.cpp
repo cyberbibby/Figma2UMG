@@ -167,6 +167,19 @@ namespace
 			return false;
 		}
 
+		if (Group->HasImageWidgetProjectTextureReference())
+		{
+			const FString TextureName = Group->GetImageWidgetTextureAssetName();
+			if (UTexture2D* Texture = Group->FindProjectTextureByName(TextureName))
+			{
+				ImageBuilder->SetTexture(Texture);
+				return true;
+			}
+
+			UE_LOG_Figma2UMG(Warning, TEXT("[UFigmaGroup::ApplyImageSourceFromChildren] IMG_ node %s references project texture %s from its own name, but no matching UTexture2D was found."), *Group->GetNodeName(), *TextureName);
+			return false;
+		}
+
 		for (const UFigmaNode* Child : Group->Children)
 		{
 			if (!Child)
@@ -675,6 +688,11 @@ bool UFigmaGroup::CreateAssetBuilder(const FString& InFileKey, TArray<TScriptInt
 	{
 		if (HasImageWidgetPrefix())
 		{
+			if (HasImageWidgetProjectTextureReference())
+			{
+				return false;
+			}
+
 			const int32 AssetBuilderCount = AssetBuilders.Num();
 			CreatePaintAssetBuilderIfNeeded(InFileKey, AssetBuilders, Fills, Strokes);
 			return AssetBuilders.Num() > AssetBuilderCount;

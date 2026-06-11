@@ -686,7 +686,7 @@ void UFigmaImporter::OnFigmaImagesURLReceived(FHttpRequestPtr HttpRequest,
 			ImageURLRequestedCount += ImagesRequestResult.Images.Num();
 			UE_LOG_Figma2UMG(
 				Display,
-				TEXT("[Figma images Request] %u/%u images received from Figma API."),
+				TEXT("[Figma images Request] %u images received from Figma API. Expect %u."),
 				ValidURL, ImagesRequestResult.Images.Num());
 
 			ImageDownloadCount = 0;
