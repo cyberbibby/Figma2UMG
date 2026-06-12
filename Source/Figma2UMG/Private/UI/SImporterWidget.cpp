@@ -9,8 +9,12 @@
 #include "TimerManager.h"
 #include "Figma2UMGModule.h"
 
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Sound/SlateSound.h"
 #include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "Figma2UMG"
 
@@ -18,6 +22,61 @@ namespace
 {
 	const TCHAR* ImporterLocalSettingsSection = TEXT("Figma2UMGImporter");
 	const TCHAR* DeprecatedImporterLocalSettingsSection = TEXT("/Script/Figma2UMG.ImporterWidgetLocalSettings");
+	const TCHAR* ImportSuccessSoundPath = TEXT("/Engine/EditorSounds/Notifications/CompileSuccess_Cue.CompileSuccess_Cue");
+	const TCHAR* ImportFailureSoundPath = TEXT("/Engine/EditorSounds/Notifications/CompileFailed_Cue.CompileFailed_Cue");
+
+	FSlateSound LoadImportNotificationSound(const TCHAR* SoundPath)
+	{
+		FSlateSound Sound;
+		if (UObject* SoundObject = LoadObject<UObject>(nullptr, SoundPath))
+		{
+			Sound.SetResourceObject(SoundObject);
+		}
+		return Sound;
+	}
+
+	void PlayImportNotificationSound(bool bSucceeded)
+	{
+		if (!FSlateApplication::IsInitialized())
+		{
+			return;
+		}
+
+		const FSlateSound Sound = LoadImportNotificationSound(bSucceeded ? ImportSuccessSoundPath : ImportFailureSoundPath);
+		if (Sound.GetResourceObject())
+		{
+			FSlateApplication::Get().PlaySound(Sound);
+		}
+	}
+
+	void ShowImportResultNotification(eRequestStatus Status, const FString& Message)
+	{
+		const bool bSucceeded = Status == eRequestStatus::Succeeded;
+		const bool bFailed = Status == eRequestStatus::Failed;
+		if (!bSucceeded && !bFailed)
+		{
+			return;
+		}
+
+		FNotificationInfo NotificationInfo(
+			bSucceeded
+				? LOCTEXT("ImportSucceededNotificationTitle", "Figma import succeeded")
+				: LOCTEXT("ImportFailedNotificationTitle", "Figma import failed"));
+		NotificationInfo.SubText = FText::FromString(Message);
+		NotificationInfo.bUseThrobber = false;
+		NotificationInfo.bUseSuccessFailIcons = true;
+		NotificationInfo.bUseLargeFont = false;
+		NotificationInfo.WidthOverride = 420.0f;
+		NotificationInfo.ExpireDuration = 3.0f;
+		NotificationInfo.FadeOutDuration = 0.5f;
+
+		if (TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(NotificationInfo))
+		{
+			Notification->SetCompletionState(bSucceeded ? SNotificationItem::CS_Success : SNotificationItem::CS_Fail);
+		}
+
+		PlayImportNotificationSound(bSucceeded);
+	}
 }
 
 SImporterWidget::SImporterWidget()
@@ -375,6 +434,8 @@ void SImporterWidget::OnRequestFinished(eRequestStatus Status, FString InMessage
 	bool IsError = Status == eRequestStatus::Failed;
 	if (Status == eRequestStatus::Succeeded || Status == eRequestStatus::Failed)
 	{
+		ShowImportResultNotification(Status, InMessage);
+
 		if (ImportButton.IsValid())
 		{
 			ImportButton->SetEnabled(true);
