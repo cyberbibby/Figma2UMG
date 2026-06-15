@@ -1,0 +1,4 @@
+interface:
+  display_name: "Figma UMG Structure Audit"
+  short_description: "Audit Figma layer structure before prefix-based Figma2UMG import."
+  default_prompt: "Use this skill to inspect a Figma screen with MCP and recommend hierarchy changes for prefix-based Figma2UMG import, including IMG_ UImage nodes, IMG_T_ project texture references, Image_ asset-only texture exports, WBP_ Widget Blueprint boundaries, BTN_ hit areas, and LST_/TLV_ entry templates. If the user provides an approved target tree, audit against that tree as the source of truth rather than reinterpreting the hierarchy."

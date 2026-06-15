@@ -34,6 +34,105 @@ Originally released on the Epic Marketplace, this plugin is now **open source an
 Install the plugin directly from FAB:
 👉 [https://www.fab.com/listings/0e0d4d1f-702f-4b3b-96c1-01c0fcac7823](https://www.fab.com/listings/0e0d4d1f-702f-4b3b-96c1-01c0fcac7823)
 
+### 🔹 Optional: Codex Skills
+This plugin includes Codex skills under `.codex/skills/` for preparing Figma files with the same prefix rules used by the importer:
+
+- `figma-umg-structure-audit`
+- `figma-umg-naming`
+
+To install them for Codex:
+
+```bash
+mkdir -p "$HOME/.codex/skills"
+cp -R Plugins/Figma2UMG/.codex/skills/figma-umg-structure-audit "$HOME/.codex/skills/"
+cp -R Plugins/Figma2UMG/.codex/skills/figma-umg-naming "$HOME/.codex/skills/"
+```
+
+If you are developing the plugin and want the skills to stay in sync with this checkout, use symlinks instead:
+
+```bash
+mkdir -p "$HOME/.codex/skills"
+ln -sfn "$(pwd)/Plugins/Figma2UMG/.codex/skills/figma-umg-structure-audit" "$HOME/.codex/skills/figma-umg-structure-audit"
+ln -sfn "$(pwd)/Plugins/Figma2UMG/.codex/skills/figma-umg-naming" "$HOME/.codex/skills/figma-umg-naming"
+```
+
+---
+
+## 🧭 Figma Layer Naming Rules
+
+Figma2UMG uses Figma layer-name prefixes to decide which UMG widget or asset should be generated. Use the format:
+
+```text
+{PREFIX}_{SemanticName}
+```
+
+Examples: `PNL_Content`, `IMG_T_CharacterInfoBg`, `Image_EditIcon`, `BTN_Confirm`, `TXT_TabName`, `LST_Tab`, `PNL_TabItem`.
+
+Prefix matching is case-insensitive. The import window keeps a configurable widget-prefix mapping table, so these defaults can be overridden when needed.
+
+### Default UMG Prefixes
+
+| Prefix | Generated UMG type |
+| --- | --- |
+| `PNL_` | CanvasPanel |
+| `VBX_` | VerticalBox |
+| `HBX_` | HorizontalBox |
+| `OVR_` | Overlay |
+| `WPB_` | WrapBox |
+| `UGP_` | UniformGridPanel |
+| `GDP_` | GridPanel |
+| `WSW_` | WidgetSwitcher |
+| `BDR_` | Border |
+| `SIZ_` | SizeBox |
+| `SCL_` | ScaleBox |
+| `SFZ_` | SafeZone |
+| `MNA_` | MenuAnchor |
+| `NSL_` | NamedSlot |
+| `BLR_` | BackgroundBlur |
+| `INB_` | InvalidationBox |
+| `RTB_` | RetainerBox |
+| `TBA_` | WindowTitleBarArea |
+| `SCR_` | ScrollBox |
+| `SBR_` | ScrollBar |
+| `TXT_` | TextBlock |
+| `ETXT_` | RichTextBlock |
+| `EDT_` | EditableText |
+| `EDB_` | EditableTextBox |
+| `MLT_` | MultiLineEditableText |
+| `MLB_` | MultiLineEditableTextBox |
+| `IMG_` | Image |
+| `BTN_` | Button |
+| `CHK_` | CheckBox |
+| `CMB_` | ComboBoxString |
+| `PBR_` | ProgressBar |
+| `SLD_` | Slider |
+| `SPN_` | SpinBox |
+| `KEY_` | InputKeySelector |
+| `THB_` | Throbber |
+| `CTH_` | CircularThrobber |
+| `SPC_` | Spacer |
+| `LST_` | ListView |
+| `TLV_` | TileView |
+
+### Special Prefixes
+
+| Prefix | Import behavior |
+| --- | --- |
+| `IMG_T_` | Creates a runtime UImage and binds it to an existing `/Game` `UTexture2D` whose asset name is the `T_...` suffix after `IMG_` is removed. For example, `IMG_T_Icon_Back` looks for `T_Icon_Back`. |
+| `Image_` | Generates only an asset-only UI Texture2D. The generated texture name strips the `Image_` prefix. It does not create a runtime widget, material, font, widget, or widget blueprint. |
+| `WBP_` | Marks a Widget Blueprint boundary. The importer reuses an existing same-name Widget Blueprint when present; otherwise it generates a child Widget Blueprint and attaches it into the parent tree. |
+
+### Structure Notes
+
+- Put the prefix on the smallest Figma node that should become that widget or asset.
+- Use `TXT_` for runtime text. Do not place bound text, buttons, list entries, or other runtime controls under `IMG_` / `Image_` nodes when they must remain editable UMG widgets.
+- Use `IMG_` for runtime UImage widgets. If the image source comes from another layer, prefer a direct `T_...` child for an existing project texture or a direct `Image_...` child for a generated texture asset.
+- Use `LST_` and `TLV_` for ListView / TileView widgets. Their first direct child is used as the EntryWidget blueprint template and assigned to `EntryWidgetClass`.
+- Use `BTN_` on the outer clickable hit-area Frame or Group. Do not nest `BTN_` inside another `BTN_`.
+- Final widget positions and sizes are rounded to integer values during import.
+
+The bundled Codex skills in `.codex/skills/` use these same rules to audit and rename Figma files before import.
+
 ---
 
 ## 🎮 Usage

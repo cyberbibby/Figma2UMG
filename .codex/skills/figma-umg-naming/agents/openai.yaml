@@ -1,0 +1,4 @@
+interface:
+  display_name: "Figma UMG Naming"
+  short_description: "Rename structurally-ready Figma nodes with Figma2UMG prefixes."
+  default_prompt: "Use this skill after structure audit to inspect a Figma screen with MCP and propose or apply prefix-based node names such as PNL_, IMG_, IMG_T_, Image_, BTN_, TXT_, LST_, TLV_, and WBP_ for Figma2UMG. If the user provides an approved target tree, match that tree as the naming source of truth and report extras separately."
